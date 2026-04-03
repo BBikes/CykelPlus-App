@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/patri/.gemini/antigravity/playground/B-Bikes/**)",
+      "Bash(npx create-next-app@latest \"CykelPlus App\" --typescript --tailwind --app --src-dir --no-eslint --no-turbopack --import-alias \"@/*\" --yes)",
+      "Bash(npx create-next-app@latest cykelplus-app --typescript --tailwind --app --src-dir --no-eslint --no-turbopack --import-alias \"@/*\" --yes)",
+      "Bash(cp -r \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\cykelplus-app/.\" \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\CykelPlus App/\")",
+      "Bash(rm -rf \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\cykelplus-app\")",
+      "Bash(cp -r \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\cykelplus-app/src\" \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\CykelPlus App/src\")",
+      "Bash(cp \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\cykelplus-app/tsconfig.json\" \"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\CykelPlus App/tsconfig.json\")",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(\"C:\\\\Users\\\\patri\\\\.gemini\\\\antigravity\\\\playground\\\\B-Bikes\\\\CykelPlus App\\\\.next\\\\types\\\\routes.d.ts\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(xargs grep:*)",
+      "Bash(find '/c/Users/patri/.gemini/antigravity/playground/B-Bikes/CykelPlus App/node_modules/next/dist' -name *.d.ts)",
+      "Bash(find '/c/Users/patri/.gemini/antigravity/playground/B-Bikes/CykelPlus App/node_modules/next/dist' -name navigation*)"
+    ]
+  }
+}
