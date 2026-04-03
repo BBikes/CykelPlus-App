@@ -113,6 +113,17 @@ export interface BookingBikeData {
   is_new?: boolean;
 }
 
+export interface CreateBookingRequest {
+  bikeId: string;
+  templateId: number;
+  method: BookingMethod;
+  date: string;
+  time?: string | null;
+  notes?: string | null;
+  budgetLimit?: number | null;
+  budgetQuote?: boolean;
+}
+
 export interface BookingPaymentStatusRecord {
   id: string;
   booking_id: string;

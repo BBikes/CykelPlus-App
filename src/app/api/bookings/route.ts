@@ -43,6 +43,7 @@ import type {
   BikedeskCustomer,
   Booking,
   BookingMethod,
+  CreateBookingRequest,
   WeekdayIndex,
 } from '@/types';
 
@@ -52,12 +53,17 @@ const bookingSchema = z.object({
   method: z.enum(['drop_off', 'pickup', 'onsite']),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(2000).nullable().optional(),
   budgetLimit: z.number().int().positive().nullable().optional(),
   budgetQuote: z.boolean().optional(),
 });
 
 const PAYMENT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function normalizeBookingNotes(notes: CreateBookingRequest['notes']): string | null {
+  const normalized = notes?.trim();
+  return normalized ? normalized : null;
+}
 
 function buildCustomerName(session: AppSession): string {
   const fullName = [session.profile?.first_name, session.profile?.last_name]
@@ -220,7 +226,8 @@ export async function POST(req: NextRequest) {
       phone: maskPhone(session.user.phone),
     });
 
-    const payload = bookingSchema.parse(await req.json());
+    const payload: CreateBookingRequest = bookingSchema.parse(await req.json());
+    const normalizedNotes = normalizeBookingNotes(payload.notes);
     bookingDebug(traceId, 'booking_submit.payload_parsed', {
       bikeId: payload.bikeId,
       templateId: payload.templateId,
@@ -229,7 +236,7 @@ export async function POST(req: NextRequest) {
       time: payload.time ?? null,
       budgetLimit: payload.budgetLimit ?? null,
       budgetQuote: payload.budgetQuote ?? false,
-      notesLength: payload.notes?.trim().length ?? 0,
+      notesLength: normalizedNotes?.length ?? 0,
     });
 
     const supabase = await createServiceClient();
@@ -409,7 +416,7 @@ export async function POST(req: NextRequest) {
       `Cykel: ${[bike.brand, bike.model].filter(Boolean).join(' ') || 'Ukendt cykel'}`,
       payload.budgetQuote ? 'Oensker tilbud inden reparation' : null,
       payload.budgetLimit ? `Budgetgrænse: ${payload.budgetLimit} kr.` : null,
-      payload.notes?.trim() ? `Note: ${payload.notes.trim()}` : null,
+      normalizedNotes ? `Note: ${normalizedNotes}` : null,
     ]
       .filter(Boolean)
       .join('\n');
@@ -497,7 +504,7 @@ export async function POST(req: NextRequest) {
         is_new: false,
       },
       budget_limit: payload.budgetQuote ? null : payload.budgetLimit ?? null,
-      notes: payload.notes?.trim() || null,
+      notes: normalizedNotes,
       bikedesk_ticket_id: ticket.id,
       bikedesk_ticket_cardno: ticketNumber,
       updated_at: now,

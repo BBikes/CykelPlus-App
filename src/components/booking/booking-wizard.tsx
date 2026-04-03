@@ -31,6 +31,7 @@ import type {
   BookingMethod,
   BookingMethodServiceTotals,
   BikedeskServiceCatalog,
+  CreateBookingRequest,
   MethodLabels,
 } from '@/types';
 
@@ -361,19 +362,21 @@ export function BookingWizard({
     setError(null);
 
     try {
+      const requestBody: CreateBookingRequest = {
+        bikeId: selectedBikeId,
+        templateId: selectedTemplateId,
+        method: selectedMethod,
+        date: selectedDate,
+        time: timeSlots.length > 0 ? selectedTime : null,
+        notes,
+        budgetLimit: showBudget && !budgetQuote ? budgetLimit : null,
+        budgetQuote: showBudget ? budgetQuote : false,
+      };
+
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bikeId: selectedBikeId,
-          templateId: selectedTemplateId,
-          method: selectedMethod,
-          date: selectedDate,
-          time: timeSlots.length > 0 ? selectedTime : null,
-          notes: notes.trim() || null,
-          budgetLimit: showBudget && !budgetQuote ? budgetLimit : null,
-          budgetQuote: showBudget ? budgetQuote : false,
-        }),
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json();
 
