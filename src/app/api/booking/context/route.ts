@@ -6,6 +6,7 @@ import {
   bookingDebug,
   bookingDebugError,
   createBookingTraceId,
+  getSupabaseDebugSnapshot,
   maskPhone,
   withDebugId,
 } from '@/lib/booking-debug';
@@ -22,6 +23,7 @@ export async function GET() {
   bookingDebug(traceId, 'booking_context.start', {
     userId: session.user.id,
     phone: maskPhone(session.user.phone),
+    ...getSupabaseDebugSnapshot(),
   });
 
   try {
@@ -52,6 +54,7 @@ export async function GET() {
     bookingDebugError(traceId, 'booking_context.failed', error, {
       userId: session.user.id,
       phone: maskPhone(session.user.phone),
+      ...getSupabaseDebugSnapshot(),
     });
 
     const message =

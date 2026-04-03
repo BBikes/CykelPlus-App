@@ -103,3 +103,14 @@ export function maskPhone(phone: string | null | undefined): string | null {
 export function withDebugId(message: string, traceId: string): string {
   return `${message} (debug-id: ${traceId})`;
 }
+
+export function getSupabaseDebugSnapshot() {
+  return {
+    hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    supabaseHost: process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
+      : null,
+  };
+}

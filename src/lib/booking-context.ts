@@ -11,7 +11,7 @@ import {
   normalizeBookingSettings,
   normalizeVehicleTypes,
 } from '@/lib/booking/settings';
-import { bookingDebug } from '@/lib/booking-debug';
+import { bookingDebug, bookingDebugError, getSupabaseDebugSnapshot } from '@/lib/booking-debug';
 import type {
   BookingForm,
   BookingMethodServiceTotals,
@@ -48,10 +48,14 @@ async function findBookingFormRow(
   supabase: Awaited<ReturnType<typeof createServiceClient>>
 ): Promise<{ id: string; title: string; slug: string | null; config: unknown } | null> {
   const preferredSlugs = [CYKELPLUS_BOOKING_FORM_SLUG, ...BOOKING_FORM_SLUG_FALLBACKS];
-  const { data: matchingRows } = await supabase
+  const { data: matchingRows, error: matchingError } = await supabase
     .from('booking_forms')
     .select('id,title,slug,config')
     .in('slug', preferredSlugs);
+
+  if (matchingError) {
+    throw new Error(`booking_forms-opslag fejlede: ${matchingError.message}`);
+  }
 
   if (matchingRows && matchingRows.length > 0) {
     return (
@@ -63,11 +67,15 @@ async function findBookingFormRow(
     );
   }
 
-  const { data: fallbackRow } = await supabase
+  const { data: fallbackRow, error: fallbackError } = await supabase
     .from('booking_forms')
     .select('id,title,slug,config')
     .limit(1)
     .maybeSingle();
+
+  if (fallbackError) {
+    throw new Error(`booking_forms fallback-opslag fejlede: ${fallbackError.message}`);
+  }
 
   return fallbackRow ?? null;
 }
@@ -86,69 +94,78 @@ export async function getConfiguredVehicleTypes(): Promise<VehicleTypeConfig[]> 
 export async function getCykelPlusBookingContext(
   options: BookingContextOptions = {}
 ): Promise<CykelPlusBookingContext> {
-  const supabase = await createServiceClient();
-  const [{ data: formRow }, { data: bookingSettingsRow }, { data: vehicleTypesRow }] =
-    await Promise.all([
-      findBookingFormRow(supabase).then((row) => ({ data: row })),
-      supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'booking_settings')
-        .maybeSingle(),
-      supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'vehicle_types')
-        .maybeSingle(),
-    ]);
+  try {
+    const supabase = await createServiceClient();
+    const [{ data: formRow }, { data: bookingSettingsRow }, { data: vehicleTypesRow }] =
+      await Promise.all([
+        findBookingFormRow(supabase).then((row) => ({ data: row })),
+        supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'booking_settings')
+          .maybeSingle(),
+        supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'vehicle_types')
+          .maybeSingle(),
+      ]);
 
-  if (!formRow) {
-    throw new Error('Ingen bookingformular blev fundet');
+    if (!formRow) {
+      throw new Error('Ingen bookingformular blev fundet');
+    }
+
+    if (options.traceId) {
+      bookingDebug(options.traceId, 'booking_context.form_resolved', {
+        formId: formRow.id,
+        formSlug: formRow.slug,
+        fallbackUsed: formRow.slug !== CYKELPLUS_BOOKING_FORM_SLUG,
+        hasBookingSettings: Boolean(bookingSettingsRow?.value),
+        hasVehicleTypes: Boolean(vehicleTypesRow?.value),
+      });
+    }
+
+    const globalSettings = normalizeBookingSettings(bookingSettingsRow?.value ?? DEFAULT_BOOKING_SETTINGS);
+    const form = normalizeFormRow(formRow);
+    const effectiveForm: BookingForm = {
+      ...form,
+      config: buildEffectiveFormConfig(form.config, globalSettings),
+    };
+    const vehicleTypes = normalizeVehicleTypes(vehicleTypesRow?.value ?? []);
+    const baseCatalog = await loadServiceCatalogFromSettings();
+    const serviceCatalog = buildBookingServiceCatalog(baseCatalog, effectiveForm, globalSettings);
+    const methodServiceTotals = getMethodServiceTotalsFromCatalog(
+      effectiveForm,
+      globalSettings,
+      serviceCatalog.templates
+    );
+
+    if (options.traceId) {
+      bookingDebug(options.traceId, 'booking_context.catalog_ready', {
+        formId: effectiveForm.id,
+        formSlug: effectiveForm.slug,
+        vehicleTypeCount: vehicleTypes.length,
+        groupCount: serviceCatalog.groups.length,
+        templateCount: serviceCatalog.templates.length,
+        source: serviceCatalog.source,
+        isStale: serviceCatalog.is_stale,
+        syncError: serviceCatalog.sync_error,
+      });
+    }
+
+    return {
+      form: effectiveForm,
+      globalSettings,
+      serviceCatalog,
+      vehicleTypes,
+      methodServiceTotals,
+    };
+  } catch (error) {
+    if (options.traceId) {
+      bookingDebugError(options.traceId, 'booking_context.resolve_failed', error, {
+        ...getSupabaseDebugSnapshot(),
+      });
+    }
+    throw error;
   }
-
-  if (options.traceId) {
-    bookingDebug(options.traceId, 'booking_context.form_resolved', {
-      formId: formRow.id,
-      formSlug: formRow.slug,
-      fallbackUsed: formRow.slug !== CYKELPLUS_BOOKING_FORM_SLUG,
-      hasBookingSettings: Boolean(bookingSettingsRow?.value),
-      hasVehicleTypes: Boolean(vehicleTypesRow?.value),
-    });
-  }
-
-  const globalSettings = normalizeBookingSettings(bookingSettingsRow?.value ?? DEFAULT_BOOKING_SETTINGS);
-  const form = normalizeFormRow(formRow);
-  const effectiveForm: BookingForm = {
-    ...form,
-    config: buildEffectiveFormConfig(form.config, globalSettings),
-  };
-  const vehicleTypes = normalizeVehicleTypes(vehicleTypesRow?.value ?? []);
-  const baseCatalog = await loadServiceCatalogFromSettings();
-  const serviceCatalog = buildBookingServiceCatalog(baseCatalog, effectiveForm, globalSettings);
-  const methodServiceTotals = getMethodServiceTotalsFromCatalog(
-    effectiveForm,
-    globalSettings,
-    serviceCatalog.templates
-  );
-
-  if (options.traceId) {
-    bookingDebug(options.traceId, 'booking_context.catalog_ready', {
-      formId: effectiveForm.id,
-      formSlug: effectiveForm.slug,
-      vehicleTypeCount: vehicleTypes.length,
-      groupCount: serviceCatalog.groups.length,
-      templateCount: serviceCatalog.templates.length,
-      source: serviceCatalog.source,
-      isStale: serviceCatalog.is_stale,
-      syncError: serviceCatalog.sync_error,
-    });
-  }
-
-  return {
-    form: effectiveForm,
-    globalSettings,
-    serviceCatalog,
-    vehicleTypes,
-    methodServiceTotals,
-  };
 }
