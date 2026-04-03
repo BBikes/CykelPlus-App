@@ -20,6 +20,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
@@ -27,7 +28,12 @@ export function LoginForm() {
         body: JSON.stringify({ phone }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Kunne ikke sende kode');
+
+      if (!res.ok) {
+        console.error('[auth_send.failed]', data);
+        throw new Error(data.error ?? 'Kunne ikke sende kode');
+      }
+
       setStep('otp');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukendt fejl');
@@ -42,6 +48,7 @@ export function LoginForm() {
     if (codeToVerify.length !== OTP_LENGTH) return;
     setError(null);
     setLoading(true);
+
     try {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
@@ -49,7 +56,12 @@ export function LoginForm() {
         body: JSON.stringify({ phone, code: codeToVerify }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Forkert kode');
+
+      if (!res.ok) {
+        console.error('[auth_verify.failed]', data);
+        throw new Error(data.error ?? 'Forkert kode');
+      }
+
       router.replace('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukendt fejl');
@@ -76,9 +88,7 @@ export function LoginForm() {
           error={!!error}
         />
 
-        {error && (
-          <p className="text-center text-sm text-red-600">{error}</p>
-        )}
+        {error && <p className="text-center text-sm text-red-600">{error}</p>}
 
         <Button
           variant="primary"
