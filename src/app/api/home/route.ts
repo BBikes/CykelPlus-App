@@ -5,6 +5,7 @@ import { getLatestActiveBooking } from '@/lib/app-bookings';
 import { listUserBikes } from '@/lib/app-bikes';
 import { getBikeDeskSyncMeta } from '@/lib/bikedesk-sync';
 import { toAppShellSession } from '@/lib/app-session';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import type { Bike, ServiceReminder } from '@/types';
 
 async function getHomePayload(user: { id: string; phone: string }) {
@@ -33,21 +34,28 @@ async function getHomePayload(user: { id: string; phone: string }) {
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
+    await ensureCykelPlusSchemaReady('app');
+
+    const [payload, sync] = await Promise.all([
+      getHomePayload(session.user),
+      getBikeDeskSyncMeta(session, { requireBikes: true, requireBookings: true }),
+    ]);
+
+    return NextResponse.json({
+      viewer: toAppShellSession(session),
+      activeBooking: payload.activeBooking,
+      reminders: payload.reminders,
+      bikes: payload.bikes,
+      sync,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ukendt fejl';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const [payload, sync] = await Promise.all([
-    getHomePayload(session.user),
-    getBikeDeskSyncMeta(session, { requireBikes: true, requireBookings: true }),
-  ]);
-
-  return NextResponse.json({
-    viewer: toAppShellSession(session),
-    activeBooking: payload.activeBooking,
-    reminders: payload.reminders,
-    bikes: payload.bikes,
-    sync,
-  });
 }

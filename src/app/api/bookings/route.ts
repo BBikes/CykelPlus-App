@@ -36,6 +36,7 @@ import {
   maskPhone,
   withDebugId,
 } from '@/lib/booking-debug';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import type {
   AppSession,
   Bike,
@@ -179,32 +180,46 @@ async function sendBookingSmsMessage(
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
 
-  const [bookings, sync] = await Promise.all([
-    listUserBookings(session.user),
-    getBikeDeskSyncMeta(session, { requireBookings: true }),
-  ]);
-  return NextResponse.json({ bookings, sync });
+    await ensureCykelPlusSchemaReady('app');
+
+    const [bookings, sync] = await Promise.all([
+      listUserBookings(session.user),
+      getBikeDeskSyncMeta(session, { requireBookings: true }),
+    ]);
+    return NextResponse.json({ bookings, sync });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ukendt fejl';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
   const traceId = createBookingTraceId('submit');
-  const session = await getSession();
-  if (!session) {
-    bookingDebug(traceId, 'booking_submit.unauthorized');
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
-
-  bookingDebug(traceId, 'booking_submit.start', {
-    userId: session.user.id,
-    phone: maskPhone(session.user.phone),
-  });
+  let session: Awaited<ReturnType<typeof getSession>> = null;
 
   try {
+    session = await getSession();
+    if (!session) {
+      bookingDebug(traceId, 'booking_submit.unauthorized');
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
+    await ensureCykelPlusSchemaReady('app', {
+      traceId,
+      source: 'booking_submit',
+    });
+
+    bookingDebug(traceId, 'booking_submit.start', {
+      userId: session.user.id,
+      phone: maskPhone(session.user.phone),
+    });
+
     const payload = bookingSchema.parse(await req.json());
     bookingDebug(traceId, 'booking_submit.payload_parsed', {
       bikeId: payload.bikeId,
@@ -603,8 +618,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {
     bookingDebugError(traceId, 'booking_submit.failed', error, {
-      userId: session.user.id,
-      phone: maskPhone(session.user.phone),
+      userId: session?.user.id ?? null,
+      phone: maskPhone(session?.user.phone),
     });
     const message = error instanceof Error ? error.message : 'Ukendt fejl';
     return NextResponse.json(

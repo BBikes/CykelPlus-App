@@ -21,6 +21,7 @@ import type {
   SyncMeta,
 } from '@/types';
 import { CYKELPLUS_BOOKING_FORM_SLUG } from './booking-context';
+import { ensureCykelPlusSchemaReady } from './cykelplus-schema';
 
 const SYNC_WINDOW_MS = 15 * 60 * 1000;
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -290,6 +291,8 @@ async function syncBookingsForCustomer(
 }
 
 export async function syncUserFromBikedesk(user: AppUser): Promise<void> {
+  await ensureCykelPlusSchemaReady('auth');
+
   const supabase = await createServiceClient();
   const customer = await findCustomerByPhone(user.phone);
   const now = new Date().toISOString();
@@ -361,6 +364,8 @@ export async function getBikeDeskSyncMeta(
   session: AppSession,
   options: BikeDeskSyncOptions = {}
 ): Promise<SyncMeta> {
+  await ensureCykelPlusSchemaReady('auth');
+
   const user = session.user;
   const lastSyncAt = user.last_bikedesk_sync_at ? new Date(user.last_bikedesk_sync_at).getTime() : 0;
   const isStale = !lastSyncAt || Date.now() - lastSyncAt > SYNC_WINDOW_MS;

@@ -13,6 +13,7 @@ import {
   maskPhone,
   withDebugId,
 } from '@/lib/booking-debug';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import type { AppUser } from '@/types';
 
 const schema = z.object({
@@ -50,6 +51,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    await ensureCykelPlusSchemaReady('auth', {
+      traceId,
+      source: 'auth_verify',
+    });
 
     const supabase = await createServiceClient();
     const now = new Date().toISOString();

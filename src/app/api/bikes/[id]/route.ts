@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getUserBike } from '@/lib/app-bikes';
 import { createCustomer, createCustomerArticle, findCustomerByPhone, updateCustomer, updateCustomerArticle } from '@/lib/bikedesk';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import type { AppSession, Bike, BikedeskCustomer } from '@/types';
 import { toDanishPhone } from '@/lib/twilio';
 
@@ -99,27 +100,36 @@ async function ensureBikeDeskCustomer(session: AppSession): Promise<BikedeskCust
 }
 
 export async function GET(_: Request, { params }: Props) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
 
-  const { id } = await params;
-  const bike = await getUserBike(session.user.id, id);
-  if (!bike) {
-    return NextResponse.json({ error: 'Cykel ikke fundet' }, { status: 404 });
-  }
+    await ensureCykelPlusSchemaReady('auth');
 
-  return NextResponse.json({ bike });
+    const { id } = await params;
+    const bike = await getUserBike(session.user.id, id);
+    if (!bike) {
+      return NextResponse.json({ error: 'Cykel ikke fundet' }, { status: 404 });
+    }
+
+    return NextResponse.json({ bike });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Fejl';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function PUT(req: NextRequest, { params }: Props) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
-
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
+    await ensureCykelPlusSchemaReady('auth');
+
     const { id } = await params;
     const payload = bikeSchema.parse(await req.json());
     const supabase = await createServiceClient();

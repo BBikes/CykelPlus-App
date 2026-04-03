@@ -11,12 +11,12 @@ const syncSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const session = await getSession({ touch: 'force' });
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
-
   try {
+    const session = await getSession({ touch: 'force' });
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const options = syncSchema.parse(body);
 

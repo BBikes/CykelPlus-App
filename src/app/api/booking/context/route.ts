@@ -10,23 +10,31 @@ import {
   maskPhone,
   withDebugId,
 } from '@/lib/booking-debug';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import { listUserBikes } from '@/lib/app-bikes';
 
 export async function GET() {
   const traceId = createBookingTraceId('context');
-  const session = await getSession();
-  if (!session) {
-    bookingDebug(traceId, 'booking_context.unauthorized');
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
-
-  bookingDebug(traceId, 'booking_context.start', {
-    userId: session.user.id,
-    phone: maskPhone(session.user.phone),
-    ...getSupabaseDebugSnapshot(),
-  });
+  let session: Awaited<ReturnType<typeof getSession>> = null;
 
   try {
+    session = await getSession();
+    if (!session) {
+      bookingDebug(traceId, 'booking_context.unauthorized');
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
+    await ensureCykelPlusSchemaReady('auth', {
+      traceId,
+      source: 'booking_context',
+    });
+
+    bookingDebug(traceId, 'booking_context.start', {
+      userId: session.user.id,
+      phone: maskPhone(session.user.phone),
+      ...getSupabaseDebugSnapshot(),
+    });
+
     const [bikes, bookingContext, sync] = await Promise.all([
       listUserBikes(session.user.id),
       getCykelPlusBookingContext({ traceId }),
@@ -52,8 +60,8 @@ export async function GET() {
     });
   } catch (error) {
     bookingDebugError(traceId, 'booking_context.failed', error, {
-      userId: session.user.id,
-      phone: maskPhone(session.user.phone),
+      userId: session?.user.id ?? null,
+      phone: maskPhone(session?.user.phone),
       ...getSupabaseDebugSnapshot(),
     });
 

@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import type { Bike } from '@/types';
 
 function enrichBikeImage(bike: Record<string, unknown>): Bike {
@@ -16,6 +17,8 @@ function enrichBikeImage(bike: Record<string, unknown>): Bike {
 }
 
 export async function listUserBikes(userId: string): Promise<Bike[]> {
+  await ensureCykelPlusSchemaReady('auth');
+
   const supabase = await createServiceClient();
   const { data } = await supabase
     .from('bikes')
@@ -52,6 +55,8 @@ export async function listUserBikes(userId: string): Promise<Bike[]> {
 }
 
 export async function getUserBike(userId: string, bikeId: string): Promise<Bike | null> {
+  await ensureCykelPlusSchemaReady('auth');
+
   const supabase = await createServiceClient();
   const { data } = await supabase
     .from('bikes')

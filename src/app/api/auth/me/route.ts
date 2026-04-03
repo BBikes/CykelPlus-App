@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { getBikeDeskSyncMeta } from '@/lib/bikedesk-sync';
 import { createCustomer, updateCustomer } from '@/lib/bikedesk';
 import { toAppShellSession } from '@/lib/app-session';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 
 const updateProfileSchema = z.object({
   first_name: z.string().trim().min(1),
@@ -17,26 +18,35 @@ const updateProfileSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind', session: null }, { status: 401 });
-  }
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind', session: null }, { status: 401 });
+    }
 
-  const sync = await getBikeDeskSyncMeta(session);
-  return NextResponse.json({
-    session,
-    viewer: toAppShellSession(session),
-    sync,
-  });
+    await ensureCykelPlusSchemaReady('auth');
+
+    const sync = await getBikeDeskSyncMeta(session);
+    return NextResponse.json({
+      session,
+      viewer: toAppShellSession(session),
+      sync,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ukendt fejl';
+    return NextResponse.json({ error: message, session: null }, { status: 500 });
+  }
 }
 
 export async function PUT(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
-
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
+    await ensureCykelPlusSchemaReady('auth');
+
     const body = await req.json();
     const data = updateProfileSchema.parse(body);
     const supabase = await createServiceClient();

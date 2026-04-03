@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import { withCustomerBookingStatus, isBookingActive } from '@/lib/customer-booking-status';
 import { loadServiceCatalogFromSettings } from '@/lib/bikedesk-service-cache';
 import { supportsBookingExtensions } from '@/lib/booking-schema';
@@ -112,6 +113,8 @@ async function enrichBookings(bookings: Booking[]): Promise<Booking[]> {
 }
 
 export async function listUserBookings(user: Pick<AppUser, 'id' | 'phone'>): Promise<Booking[]> {
+  await ensureCykelPlusSchemaReady('app');
+
   const supabase = await createServiceClient();
   const extensionsSupported = await supportsBookingExtensions();
   let query = supabase
@@ -132,6 +135,8 @@ export async function getUserBooking(
   user: Pick<AppUser, 'id' | 'phone'>,
   bookingId: string
 ): Promise<Booking | null> {
+  await ensureCykelPlusSchemaReady('app');
+
   const supabase = await createServiceClient();
   const extensionsSupported = await supportsBookingExtensions();
   let bookingQuery = supabase.from('bookings').select('*').eq('id', bookingId);

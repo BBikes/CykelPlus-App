@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { getBikeDeskSyncMeta } from '@/lib/bikedesk-sync';
 import { listUserBikes } from '@/lib/app-bikes';
 import { createCustomer, createCustomerArticle, findCustomerByPhone, updateCustomer } from '@/lib/bikedesk';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 import type { AppSession, BikedeskCustomer } from '@/types';
 import { toDanishPhone } from '@/lib/twilio';
 
@@ -96,25 +97,34 @@ async function ensureBikeDeskCustomer(session: AppSession): Promise<BikedeskCust
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
 
-  const [bikes, sync] = await Promise.all([
-    listUserBikes(session.user.id),
-    getBikeDeskSyncMeta(session, { requireBikes: true }),
-  ]);
-  return NextResponse.json({ bikes, sync });
+    await ensureCykelPlusSchemaReady('auth');
+
+    const [bikes, sync] = await Promise.all([
+      listUserBikes(session.user.id),
+      getBikeDeskSyncMeta(session, { requireBikes: true }),
+    ]);
+    return NextResponse.json({ bikes, sync });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Fejl';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
-  }
-
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
+    }
+
+    await ensureCykelPlusSchemaReady('auth');
+
     const payload = bikeSchema.parse(await req.json());
     const [customer, supabase] = await Promise.all([
       ensureBikeDeskCustomer(session),

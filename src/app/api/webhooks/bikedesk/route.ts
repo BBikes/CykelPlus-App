@@ -4,6 +4,7 @@ import { normalizeSharedBookingStatus } from '@/lib/bikedesk-status';
 import { sendSms } from '@/lib/twilio';
 import { SMS_TEMPLATES } from '@/lib/sms-templates';
 import { formatDateToDanish } from '@/lib/booking/availability';
+import { ensureCykelPlusSchemaReady } from '@/lib/cykelplus-schema';
 
 function normalizePaymentState(value: unknown): 'pending' | 'paid' | 'expired' | 'refunded' | null {
   if (typeof value !== 'string') {
@@ -24,6 +25,8 @@ function getFirstName(customerName: string | null | undefined): string {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureCykelPlusSchemaReady('app');
+
     const payload = await req.json();
     const ticketId = Number(payload?.ticket_id ?? payload?.id ?? 0);
 

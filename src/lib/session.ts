@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { cookies } from 'next/headers';
 import { createServiceClient } from './supabase/server';
+import { ensureCykelPlusSchemaReady } from './cykelplus-schema';
 import type { AppUser, UserProfile, AppSession } from '@/types';
 import { COOKIE_NAME, SESSION_TOUCH_THROTTLE_MS, SESSION_TTL_DAYS } from './session-constants';
 
@@ -9,6 +10,8 @@ export function hashToken(raw: string): string {
 }
 
 export async function createSession(userId: string): Promise<string> {
+  await ensureCykelPlusSchemaReady('auth');
+
   const rawToken = randomUUID();
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -54,6 +57,8 @@ export async function getSession({
   const cookieStore = await cookies();
   const rawToken = cookieStore.get(COOKIE_NAME)?.value;
   if (!rawToken) return null;
+
+  await ensureCykelPlusSchemaReady('auth');
 
   const tokenHash = hashToken(rawToken);
   const supabase = await createServiceClient();
@@ -104,6 +109,8 @@ export async function getSession({
 }
 
 export async function deleteSession(rawToken: string): Promise<void> {
+  await ensureCykelPlusSchemaReady('auth');
+
   const tokenHash = hashToken(rawToken);
   const supabase = await createServiceClient();
   await supabase.from('user_sessions').delete().eq('token_hash', tokenHash);
