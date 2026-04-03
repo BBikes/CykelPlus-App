@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, KeyboardEvent, ClipboardEvent } from 'react';
+import { normalizeVerificationCode, OTP_LENGTH } from '@/lib/auth';
 
 interface OtpInputProps {
   value: string;
@@ -25,9 +26,9 @@ export function OtpInput({ value, onChange, onComplete, disabled, error }: OtpIn
           signal: abortController?.signal,
         });
         if (otp?.code) {
-          const code = String(otp.code).slice(0, 4);
+          const code = normalizeVerificationCode(String(otp.code));
           onChange(code);
-          if (code.length === 4) onComplete?.(code);
+          if (code.length === OTP_LENGTH) onComplete?.(code);
         }
       } catch {
         // Aborted or unavailable — ignore
@@ -40,14 +41,15 @@ export function OtpInput({ value, onChange, onComplete, disabled, error }: OtpIn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const digits = value.padEnd(4, '').slice(0, 4).split('');
+  const normalizedValue = normalizeVerificationCode(value);
+  const digits = normalizedValue.padEnd(OTP_LENGTH, '').slice(0, OTP_LENGTH).split('');
 
   const handleChange = (index: number, char: string) => {
     const d = char.replace(/\D/g, '').slice(-1);
     const next = digits.map((v, i) => (i === index ? d : v)).join('').replace(/ /g, '');
     onChange(next);
-    if (d && index < 3) inputsRef.current[index + 1]?.focus();
-    if (next.length === 4) onComplete?.(next);
+    if (d && index < OTP_LENGTH - 1) inputsRef.current[index + 1]?.focus();
+    if (next.length === OTP_LENGTH) onComplete?.(next);
   };
 
   const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
@@ -58,15 +60,15 @@ export function OtpInput({ value, onChange, onComplete, disabled, error }: OtpIn
 
   const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    const pasted = normalizeVerificationCode(e.clipboardData.getData('text'));
     onChange(pasted);
-    if (pasted.length === 4) onComplete?.(pasted);
-    inputsRef.current[Math.min(pasted.length, 3)]?.focus();
+    if (pasted.length === OTP_LENGTH) onComplete?.(pasted);
+    inputsRef.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
   };
 
   return (
     <div className="flex gap-3 justify-center" aria-label="Engangskode">
-      {[0, 1, 2, 3].map((i) => (
+      {Array.from({ length: OTP_LENGTH }, (_, i) => (
         <input
           key={i}
           ref={(el) => { inputsRef.current[i] = el; }}

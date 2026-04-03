@@ -3,11 +3,14 @@ import { checkVerificationCode, toE164 } from '@/lib/twilio';
 import { createServiceClient } from '@/lib/supabase/server';
 import { createSession, setSessionCookie } from '@/lib/session';
 import { findCustomerByPhone } from '@/lib/bikedesk';
+import { normalizeVerificationCode, OTP_LENGTH } from '@/lib/auth';
 import { z } from 'zod';
 
 const schema = z.object({
   phone: z.string().min(8),
-  code: z.string().length(4),
+  code: z.string().transform(normalizeVerificationCode).refine((value) => value.length === OTP_LENGTH, {
+    message: `Koden skal være ${OTP_LENGTH} cifre`,
+  }),
 });
 
 export async function POST(req: NextRequest) {

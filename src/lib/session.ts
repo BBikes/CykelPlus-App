@@ -2,9 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import { cookies } from 'next/headers';
 import { createServiceClient } from './supabase/server';
 import type { AppUser, UserProfile, AppSession } from '@/types';
-
-const COOKIE_NAME = 'cykelplus_session';
-const SESSION_TTL_DAYS = 90;
+import { COOKIE_NAME, SESSION_TTL_DAYS } from './session-constants';
 
 export function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
@@ -96,5 +94,3 @@ export async function deleteSession(rawToken: string): Promise<void> {
   const supabase = await createServiceClient();
   await supabase.from('user_sessions').delete().eq('token_hash', tokenHash);
 }
-
-export { COOKIE_NAME };

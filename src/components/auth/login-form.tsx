@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { OtpInput } from './otp-input';
+import { normalizeVerificationCode, OTP_LENGTH } from '@/lib/auth';
 
 type Step = 'phone' | 'otp';
 
@@ -36,8 +37,9 @@ export function LoginForm() {
   };
 
   const handleVerifyOtp = async (code?: string) => {
-    const codeToVerify = code ?? otp;
-    if (codeToVerify.length !== 4) return;
+    const codeToVerify = normalizeVerificationCode(code ?? otp);
+    setOtp(codeToVerify);
+    if (codeToVerify.length !== OTP_LENGTH) return;
     setError(null);
     setLoading(true);
     try {
@@ -84,7 +86,7 @@ export function LoginForm() {
           fullWidth
           loading={loading}
           onClick={() => handleVerifyOtp()}
-          disabled={otp.length !== 4}
+          disabled={normalizeVerificationCode(otp).length !== OTP_LENGTH}
         >
           Bekræft kode
         </Button>
