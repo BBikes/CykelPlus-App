@@ -13,13 +13,13 @@ export default async function NewBikePage() {
 
   return (
     <div className="flex flex-col">
-      <PageHeader title="Tilfoej cykel" backHref="/garage" />
+      <PageHeader title="Tilføj cykel" backHref="/garage" />
       <BikeForm
         vehicleTypes={vehicleTypes}
         submitUrl="/api/bikes"
         method="POST"
         title="Ny cykel i BikeDesk"
-        description="Cyklen bliver oprettet i BikeDesk foerst og vises derefter i din garage."
+        description="Cyklen bliver oprettet i BikeDesk først og vises derefter i din garage."
       />
     </div>
   );

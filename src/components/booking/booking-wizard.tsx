@@ -45,7 +45,7 @@ interface BookingWizardProps {
 const DEFAULT_METHOD_LABELS: MethodLabels = {
   workshop: 'Indlevering i butik',
   pickup: 'Hent og bring',
-  onsite: 'Paa arbejdsplads',
+  onsite: 'På arbejdsplads',
 };
 
 const DEFAULT_METHOD_TOTALS: BookingMethodServiceTotals = {
@@ -90,17 +90,17 @@ function getTemplatePrice(template: {
 }
 
 function getStepTitle(step: number): string {
-  if (step === 1) return 'Vaelg Koeretoj';
-  if (step === 2) return 'Vaelg Service';
+  if (step === 1) return 'Vælg køretøj';
+  if (step === 2) return 'Vælg service';
   if (step === 3) return 'Dato og metode';
-  return 'Bekraeft booking';
+  return 'Bekræft booking';
 }
 
 function getStepDescription(step: number): string {
-  if (step === 1) return 'Vaelg den cykel, som skal have service.';
+  if (step === 1) return 'Vælg den cykel, som skal have service.';
   if (step === 2) return 'Vi viser kun services, der passer til din cykel.';
-  if (step === 3) return 'Vaelg hvordan og hvornar servicen skal ske.';
-  return 'Gennemgaa dine valg, foer vi sender bookinganmodningen.';
+  if (step === 3) return 'Vælg hvordan og hvornår servicen skal ske.';
+  return 'Gennemgå dine valg, før vi sender bookinganmodningen.';
 }
 
 function SummaryRow({
@@ -245,11 +245,11 @@ export function BookingWizard({
           Ingen cykler endnu
         </h2>
         <p className="text-sm leading-6 text-slate-500">
-          Tilfoej en cykel i din garage foer du kan booke service fra appen.
+          Tilføj en cykel i din garage før du kan booke service fra appen.
         </p>
         <Link href="/garage/new">
           <Button variant="primary" className="rounded-2xl bg-slate-900">
-            Tilfoej cykel
+            Tilføj cykel
           </Button>
         </Link>
       </Card>
@@ -522,7 +522,7 @@ export function BookingWizard({
             </Button>
           ) : (
             <Button variant="primary" fullWidth disabled={!canContinue()} onClick={handleContinue}>
-              Naeste Trin
+              Næste trin
             </Button>
           )}
         </Card>
@@ -552,7 +552,7 @@ function StepTwo({
   if (syncError && groupedTemplates.length === 0 && ungroupedTemplates.length === 0) {
     return (
       <Card className="rounded-[24px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Kunne ikke hente services. Proev at genindlaese siden.
+        Kunne ikke hente services. Prøv at genindlæse siden.
       </Card>
     );
   }
@@ -809,7 +809,7 @@ function StepThree({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <Clock3 className="h-4 w-4" />
-                Vaelg tidspunkt
+                Vælg tidspunkt
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {timeSlots.map((slot) => (
@@ -918,9 +918,9 @@ function StepFour({
         <Card className="space-y-4 rounded-[28px] p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-semibold text-slate-900">Budgetgraense</p>
+              <p className="font-semibold text-slate-900">Budgetgrænse</p>
               <p className="text-sm leading-6 text-slate-500">
-                Vi kontakter dig, hvis arbejdet overstiger beloebet.
+                Vi kontakter dig, hvis arbejdet overstiger beløbet.
               </p>
             </div>
             <button
@@ -956,7 +956,7 @@ function StepFour({
 
       <Card className="space-y-3 rounded-[28px] p-5">
         <label className="text-sm font-semibold text-slate-700" htmlFor="booking-notes">
-          Bemaerkninger
+          Bemærkninger
         </label>
         <textarea
           id="booking-notes"
@@ -968,7 +968,7 @@ function StepFour({
         />
         {selectedMethod === 'pickup' && (
           <p className="text-sm text-amber-700">
-            Pickup-bookinger bliver foerst bekraeftet, naar betalingen er registreret.
+            Pickup-bookinger bliver først bekræftet, når betalingen er registreret.
           </p>
         )}
       </Card>

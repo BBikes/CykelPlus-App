@@ -271,7 +271,7 @@ select
       "method_labels": {
         "workshop": "Indlevering i butik",
         "pickup": "Hent og bring",
-        "onsite": "Paa arbejdsplads"
+        "onsite": "På arbejdsplads"
       }
     }'::jsonb
   )

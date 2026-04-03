@@ -9,8 +9,8 @@ import type { AppSession, BikedeskCustomer } from '@/types';
 import { toDanishPhone } from '@/lib/twilio';
 
 const bikeSchema = z.object({
-  brand: z.string().trim().min(1, 'Maerke er paakraevet'),
-  model: z.string().trim().min(1, 'Model er paakraevet'),
+  brand: z.string().trim().min(1, 'Mærke er påkrævet'),
+  model: z.string().trim().min(1, 'Model er påkrævet'),
   year: z.number().int().min(1900).max(2100).nullable().optional(),
   frame_number: z.string().trim().nullable().optional(),
   color: z.string().trim().nullable().optional(),

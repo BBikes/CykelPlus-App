@@ -31,7 +31,7 @@ export function GarageTab() {
         <Card className="flex flex-col gap-3 rounded-[28px] border border-red-100 bg-white/95 p-6">
           <h1 className="text-2xl font-semibold text-slate-950">Garage er ikke klar</h1>
           <p className="text-sm text-slate-500">
-            Vi kunne ikke hente dine cykler lige nu. Proev at opdatere igen.
+            Vi kunne ikke hente dine cykler lige nu. Prøv at opdatere igen.
           </p>
           <Button
             type="button"
@@ -40,7 +40,7 @@ export function GarageTab() {
               void mutate();
             }}
           >
-            Proev igen
+            Prøv igen
           </Button>
         </Card>
       </div>
@@ -89,12 +89,12 @@ export function GarageTab() {
               Ingen cykler endnu
             </h2>
             <p className="text-sm leading-6 text-slate-500">
-              Tilfoej din foerste cykel for at se historik, bookingdetaljer og trackerstatus i
+              Tilføj din første cykel for at se historik, bookingdetaljer og trackerstatus i
               samme overblik.
             </p>
             <Link href="/garage/new" className="pt-2">
               <Button variant="primary" className="rounded-2xl bg-slate-900">
-                Tilfoej cykel
+                Tilføj cykel
               </Button>
             </Link>
           </Card>

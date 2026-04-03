@@ -20,6 +20,7 @@ import type {
 } from '@/types';
 
 export const CYKELPLUS_BOOKING_FORM_SLUG = 'cykelplus-app';
+const BOOKING_FORM_SLUG_FALLBACKS = ['booking', 'standard'] as const;
 
 export interface CykelPlusBookingContext {
   form: BookingForm;
@@ -38,6 +39,34 @@ function normalizeFormRow(row: { id: string; title: string; slug: string | null;
   };
 }
 
+async function findBookingFormRow(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>
+): Promise<{ id: string; title: string; slug: string | null; config: unknown } | null> {
+  const preferredSlugs = [CYKELPLUS_BOOKING_FORM_SLUG, ...BOOKING_FORM_SLUG_FALLBACKS];
+  const { data: matchingRows } = await supabase
+    .from('booking_forms')
+    .select('id,title,slug,config')
+    .in('slug', preferredSlugs);
+
+  if (matchingRows && matchingRows.length > 0) {
+    return (
+      [...matchingRows].sort(
+        (left, right) =>
+          preferredSlugs.indexOf(left.slug as (typeof preferredSlugs)[number]) -
+          preferredSlugs.indexOf(right.slug as (typeof preferredSlugs)[number])
+      )[0] ?? null
+    );
+  }
+
+  const { data: fallbackRow } = await supabase
+    .from('booking_forms')
+    .select('id,title,slug,config')
+    .limit(1)
+    .maybeSingle();
+
+  return fallbackRow ?? null;
+}
+
 export async function getConfiguredVehicleTypes(): Promise<VehicleTypeConfig[]> {
   const supabase = await createServiceClient();
   const { data } = await supabase
@@ -53,11 +82,7 @@ export async function getCykelPlusBookingContext(): Promise<CykelPlusBookingCont
   const supabase = await createServiceClient();
   const [{ data: formRow }, { data: bookingSettingsRow }, { data: vehicleTypesRow }] =
     await Promise.all([
-      supabase
-        .from('booking_forms')
-        .select('id,title,slug,config')
-        .eq('slug', CYKELPLUS_BOOKING_FORM_SLUG)
-        .maybeSingle(),
+      findBookingFormRow(supabase).then((row) => ({ data: row })),
       supabase
         .from('system_settings')
         .select('value')
@@ -71,7 +96,7 @@ export async function getCykelPlusBookingContext(): Promise<CykelPlusBookingCont
     ]);
 
   if (!formRow) {
-    throw new Error(`Booking form '${CYKELPLUS_BOOKING_FORM_SLUG}' blev ikke fundet`);
+    throw new Error('Ingen bookingformular blev fundet');
   }
 
   const globalSettings = normalizeBookingSettings(bookingSettingsRow?.value ?? DEFAULT_BOOKING_SETTINGS);

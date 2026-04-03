@@ -49,19 +49,19 @@ export default async function BookConfirmPage({ searchParams }: Props) {
 
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          {awaitingPayment ? 'Booking modtaget' : 'Booking bekraeftet'}
+          {awaitingPayment ? 'Booking modtaget' : 'Booking bekræftet'}
         </h1>
         <p className="mt-2 text-gray-600">
           {awaitingPayment
-            ? 'Vi afventer betaling, foer afhentningen bliver endeligt bekraeftet.'
-            : 'Din booking ligger nu i systemet og er klar til naeste trin.'}
+            ? 'Vi afventer betaling, før afhentningen bliver endeligt bekræftet.'
+            : 'Din booking ligger nu i systemet og er klar til næste trin.'}
         </p>
       </div>
 
       {awaitingPayment && (
         <Card className="w-full max-w-sm border border-amber-200 bg-amber-50 text-left">
           <p className="text-sm text-amber-900">
-            Betalingslinket bliver gemt paa bookingen. Hvis det ikke vises endnu, kan du aabne
+            Betalingslinket bliver gemt på bookingen. Hvis det ikke vises endnu, kan du åbne
             bookingen og gensende linket.
           </p>
         </Card>

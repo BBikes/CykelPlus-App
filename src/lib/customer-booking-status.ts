@@ -47,15 +47,15 @@ export function getCustomerBookingStatusLabel(status: CustomerBookingStatus): st
     case 'awaiting_payment':
       return 'Afventer betaling';
     case 'booking_confirmed':
-      return 'Bekraeftet';
+      return 'Bekræftet';
     case 'in_progress':
       return 'I gang';
     case 'quote':
       return 'Afventer tilbud';
     case 'completed':
-      return 'Faerdig';
+      return 'Færdig';
     case 'payment_expired':
-      return 'Betaling udloeber';
+      return 'Betaling udløbet';
     case 'cancelled':
       return 'Annulleret';
     default:

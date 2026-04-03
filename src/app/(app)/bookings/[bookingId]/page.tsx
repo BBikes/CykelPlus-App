@@ -1,35 +1,35 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
+  Bike as BikeIcon,
   CalendarDays,
-  CreditCard,
-  XCircle,
   CheckCircle,
   Clock,
-  Bike as BikeIcon,
+  CreditCard,
+  XCircle,
 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { BookingStatusBadge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { PageSpinner } from '@/components/ui/spinner';
-import type { Booking, BookingEvent, Bike } from '@/types';
+import type { Bike, Booking, BookingEvent } from '@/types';
 
 type BookingDetail = Booking & { bike: Bike | null; events: BookingEvent[] };
 
 const methodLabels: Record<string, string> = {
   drop_off: 'Indlevering i butik',
   pickup: 'Afhentning & levering',
-  onsite: 'Paa arbejdsplads',
+  onsite: 'På arbejdsplads',
 };
 
 const eventLabels: Record<string, string> = {
   created: 'Booking oprettet',
   payment_sent: 'Betalingslink sendt',
-  confirmed: 'Booking bekraeftet',
-  payment_expired: 'Betaling udloebet',
+  confirmed: 'Booking bekræftet',
+  payment_expired: 'Betaling udløbet',
   cancelled: 'Booking annulleret',
 };
 
@@ -61,7 +61,7 @@ export default function BookingDetailPage() {
   }, [booking?.customer_status, fetchBooking]);
 
   const handleCancel = async () => {
-    if (!confirm('Er du sikker paa, at du vil annullere denne booking?')) return;
+    if (!confirm('Er du sikker på, at du vil annullere denne booking?')) return;
     setCancelling(true);
     setError(null);
     try {
@@ -156,7 +156,7 @@ export default function BookingDetailPage() {
               <p className="font-semibold text-amber-900">Betaling afventes</p>
             </div>
             <p className="text-sm text-amber-800">
-              Betalingslinket er sendt til dit mobilnummer. Betal inden 24 timer for at bekraefte
+              Betalingslinket er sendt til dit mobilnummer. Betal inden 24 timer for at bekræfte
               din booking.
             </p>
             {booking.payment_link_url && (
@@ -167,7 +167,7 @@ export default function BookingDetailPage() {
                 className="w-full"
               >
                 <Button variant="primary" fullWidth>
-                  Aabn betalingslink
+                  Åbn betalingslink
                 </Button>
               </a>
             )}
@@ -185,9 +185,9 @@ export default function BookingDetailPage() {
 
         {customerStatus === 'payment_expired' && (
           <Card className="flex flex-col gap-3 border border-red-200 bg-red-50">
-            <p className="font-semibold text-red-900">Betaling udloeber</p>
+            <p className="font-semibold text-red-900">Betaling udløbet</p>
             <p className="text-sm text-red-800">
-              Betalingsvinduet er udloebet. Du er velkommen til at oprette en ny booking.
+              Betalingsvinduet er udløbet. Du er velkommen til at oprette en ny booking.
             </p>
             {booking.bike_id && (
               <Link href={`/book?bikeId=${booking.bike_id}`}>
@@ -239,7 +239,7 @@ export default function BookingDetailPage() {
             </div>
             {booking.service_labels && booking.service_labels.length > 0 && (
               <div className="flex items-start gap-3 px-4 py-3">
-                <div className="h-4 w-4 mt-0.5" />
+                <div className="mt-0.5 h-4 w-4" />
                 <div>
                   <p className="text-xs text-gray-400">Service</p>
                   <p className="text-sm font-medium text-gray-900">
@@ -263,7 +263,7 @@ export default function BookingDetailPage() {
         {booking.events.length > 0 && (
           <section>
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Haendelser
+              Hændelser
             </h2>
             <Card className="flex flex-col gap-3">
               {booking.events.map((event, index) => (

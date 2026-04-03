@@ -92,7 +92,7 @@ function isTemplateAllowedForBike(
 
 function getMethodDescription(method: BookingMethod): string {
   if (method === 'pickup') return 'Afhentning og levering';
-  if (method === 'onsite') return 'Service paa arbejdsplads';
+  if (method === 'onsite') return 'Service på arbejdsplads';
   return 'Indlevering i butik';
 }
 
@@ -263,7 +263,7 @@ export async function POST(req: NextRequest) {
           : calendar?.max_bookings_onsite ?? 0;
 
     if (capacityLimit > 0 && (bookingCount ?? 0) >= capacityLimit) {
-      return NextResponse.json({ error: 'Ingen ledige tider paa den valgte dato' }, { status: 409 });
+      return NextResponse.json({ error: 'Ingen ledige tider på den valgte dato' }, { status: 409 });
     }
 
     const [customer, onlineBookingTag, availableTags, planner, store] = await Promise.all([
@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     if (!planner?.id) {
-      throw new Error('BikeDesk assignee "Planlaegningen" blev ikke fundet');
+      throw new Error('BikeDesk assignee "Planlægningen" blev ikke fundet');
     }
 
     const weekdayIndex = parseDateFromISO(payload.date).getDay() as WeekdayIndex;
@@ -312,7 +312,7 @@ export async function POST(req: NextRequest) {
       `Service: ${selectedTemplate.label}`,
       `Cykel: ${[bike.brand, bike.model].filter(Boolean).join(' ') || 'Ukendt cykel'}`,
       payload.budgetQuote ? 'Oensker tilbud inden reparation' : null,
-      payload.budgetLimit ? `Budgetgraense: ${payload.budgetLimit} kr.` : null,
+      payload.budgetLimit ? `Budgetgrænse: ${payload.budgetLimit} kr.` : null,
       payload.notes?.trim() ? `Note: ${payload.notes.trim()}` : null,
     ]
       .filter(Boolean)

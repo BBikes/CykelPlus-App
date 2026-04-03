@@ -37,7 +37,7 @@ export const DEFAULT_CALENDAR_SETTINGS: CalendarSettings = {
 export const DEFAULT_METHOD_LABELS: MethodLabels = {
   workshop: 'Indlevering i butik',
   pickup: 'Hent og Bring',
-  onsite: 'Paa arbejdsplads',
+  onsite: 'På arbejdsplads',
 };
 
 export const DEFAULT_WEEKDAY_TAGS: WeekdayTagMap = {

@@ -93,7 +93,7 @@ export function BikeForm({
         )}
 
         <Input
-          label="Maerke"
+          label="Mærke"
           value={form.brand}
           onChange={(event) => setForm((current) => ({ ...current, brand: event.target.value }))}
           required
@@ -124,7 +124,7 @@ export function BikeForm({
               onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
-              <option value="">Vaelg type</option>
+              <option value="">Vælg type</option>
               {vehicleTypes.map((vehicleType) => (
                 <option key={vehicleType.id} value={vehicleType.id}>
                   {vehicleType.name}
@@ -158,13 +158,13 @@ export function BikeForm({
             onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
             rows={4}
             className="w-full resize-none rounded-[24px] border border-slate-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            placeholder="Fx daekstorrelsen, saerlige behov eller ekstra detaljer"
+            placeholder="Fx dækstørrelsen, særlige behov eller ekstra detaljer"
           />
         </div>
       </Card>
 
       <Button type="submit" variant="primary" fullWidth loading={submitting} className="bg-slate-900">
-        {bike ? 'Gem aendringer' : 'Opret cykel'}
+        {bike ? 'Gem ændringer' : 'Opret cykel'}
       </Button>
     </form>
   );

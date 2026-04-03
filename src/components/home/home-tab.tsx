@@ -44,7 +44,7 @@ const quickActions = [
   },
   {
     href: '/help',
-    label: 'Hjaelp',
+    label: 'Hjælp',
     icon: Headset,
     iconClassName: 'bg-emerald-50 text-emerald-500',
   },
@@ -72,7 +72,7 @@ export function HomeTab() {
         <Card className="flex flex-col gap-3 rounded-[28px] border border-red-100 bg-white/95 p-6">
           <h1 className="text-2xl font-semibold text-slate-950">Kunne ikke hente overblikket</h1>
           <p className="text-sm text-slate-500">
-            Appen kunne ikke hente dine data lige nu. Proev at opdatere igen.
+            Appen kunne ikke hente dine data lige nu. Prøv at opdatere igen.
           </p>
           <Button
             type="button"
@@ -81,7 +81,7 @@ export function HomeTab() {
               void mutate();
             }}
           >
-            Proev igen
+            Prøv igen
           </Button>
         </Card>
       </div>
@@ -118,7 +118,7 @@ export function HomeTab() {
                 Har du problemer med cyklen?
               </h2>
               <p className="max-w-[28ch] text-sm leading-6 text-white/82">
-                Book service direkte i appen og faa adgang til dine bookingdetaljer med det samme.
+                Book service direkte i appen og få adgang til dine bookingdetaljer med det samme.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -204,7 +204,7 @@ export function HomeTab() {
           {bikes.length === 0 ? (
             <Card className="rounded-[24px] border border-dashed border-slate-200 bg-white/92 px-5 py-6">
               <p className="text-sm text-slate-500">
-                Ingen cykler endnu. Tilfoej din foerste cykel i garage for at komme i gang.
+                Ingen cykler endnu. Tilføj din første cykel i garage for at komme i gang.
               </p>
             </Card>
           ) : (
@@ -235,7 +235,7 @@ export function HomeTab() {
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">
-                Naermeste service
+                Nærmeste service
               </h2>
             </div>
             <div className="space-y-3">

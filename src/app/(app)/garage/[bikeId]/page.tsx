@@ -125,7 +125,7 @@ export default async function BikeDetailPage({ params }: Props) {
                   ].join(' ')}
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">Servicepaamindelse</p>
+                  <p className="text-sm font-medium text-gray-900">Servicepåmindelse</p>
                   <p className="text-xs text-gray-500">
                     Forfaldsdato:{' '}
                     {new Date(reminder.due_date).toLocaleDateString('da-DK', {

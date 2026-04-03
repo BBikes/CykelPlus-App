@@ -13,7 +13,7 @@ import { BOOKINGS_API_KEY, HOME_API_KEY } from '@/lib/api-keys';
 const methodLabels: Record<string, string> = {
   drop_off: 'Indlevering i butik',
   pickup: 'Afhentning og levering',
-  onsite: 'Service paa arbejdsplads',
+  onsite: 'Service på arbejdsplads',
 };
 
 export function BookingsPageClient() {
@@ -35,9 +35,9 @@ export function BookingsPageClient() {
     return (
       <div className="px-4 pb-24 pt-10">
         <Card className="flex flex-col gap-3 rounded-[28px] border border-red-100 bg-white/95 p-6">
-          <h1 className="text-2xl font-semibold text-slate-950">Aftaler kunne ikke indlaeses</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">Aftaler kunne ikke indlæses</h1>
           <p className="text-sm text-slate-500">
-            Vi kunne ikke hente dine bookingdetaljer lige nu. Proev igen.
+            Vi kunne ikke hente dine bookingdetaljer lige nu. Prøv igen.
           </p>
           <Button
             type="button"
@@ -46,7 +46,7 @@ export function BookingsPageClient() {
               void mutate();
             }}
           >
-            Proev igen
+            Prøv igen
           </Button>
         </Card>
       </div>
@@ -61,7 +61,7 @@ export function BookingsPageClient() {
             Mine Aftaler
           </h1>
           <p className="text-sm text-slate-500">
-            Her kan du se aktive og tidligere serviceforloeb.
+            Her kan du se aktive og tidligere serviceforløb.
           </p>
         </header>
 
@@ -75,7 +75,7 @@ export function BookingsPageClient() {
                 Ingen bookinger endnu
               </h2>
               <p className="text-sm leading-6 text-slate-500">
-                Book din foerste service, og den vil dukke op her med status og detaljer.
+                Book din første service, og den vil dukke op her med status og detaljer.
               </p>
             </div>
             <Link href="/book">

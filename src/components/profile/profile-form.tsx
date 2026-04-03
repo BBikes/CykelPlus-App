@@ -136,8 +136,8 @@ export function ProfileForm({
                   <Headset className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900">Hjaelp</p>
-                  <p className="text-sm text-slate-500">Kontakt og ofte stillede spoergsmaal</p>
+                  <p className="font-semibold text-slate-900">Hjælp</p>
+                  <p className="text-sm text-slate-500">Kontakt og ofte stillede spørgsmål</p>
                 </div>
               </div>
             </Card>
@@ -226,9 +226,9 @@ export function ProfileForm({
                   <Bell className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900">SMS-paamindelser</p>
+                  <p className="font-semibold text-slate-900">SMS-påmindelser</p>
                   <p className="text-sm text-slate-500">
-                    Faa besked om booking og serviceforloeb
+                    Få besked om booking og serviceforløb
                   </p>
                 </div>
               </div>

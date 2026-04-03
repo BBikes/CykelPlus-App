@@ -15,6 +15,10 @@ export function ServiceTab() {
   const searchParams = useSearchParams();
   const initialBikeId = searchParams.get('bikeId');
   const { data, error, isLoading, mutate } = useBookingContextData();
+  const errorMessage =
+    error instanceof Error && error.message !== 'Request failed'
+      ? error.message
+      : 'Vi kunne ikke hente serviceopsætningen lige nu. Prøv igen om et øjeblik.';
   const { isSyncing, triggerSync } = useBackgroundBikedeskSync(data?.sync, {
     requireBikes: true,
     revalidateKeys: [BOOKING_CONTEXT_API_KEY, BIKES_API_KEY, HOME_API_KEY],
@@ -32,10 +36,8 @@ export function ServiceTab() {
     return (
       <div className="px-4 pb-24 pt-10">
         <Card className="flex flex-col gap-3 rounded-[28px] border border-red-100 bg-white/95 p-6">
-          <h1 className="text-2xl font-semibold text-slate-950">Booking kunne ikke indlaeses</h1>
-          <p className="text-sm text-slate-500">
-            Vi kunne ikke hente serviceopsaetningen lige nu. Proev igen om et oejeblik.
-          </p>
+          <h1 className="text-2xl font-semibold text-slate-950">Booking kunne ikke indlæses</h1>
+          <p className="text-sm text-slate-500">{errorMessage}</p>
           <Button
             type="button"
             variant="primary"
@@ -43,7 +45,7 @@ export function ServiceTab() {
               void mutate();
             }}
           >
-            Proev igen
+            Prøv igen
           </Button>
         </Card>
       </div>
@@ -54,7 +56,7 @@ export function ServiceTab() {
     <div className="px-4 pb-24 pt-6">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-slate-500">Planlaeg service</p>
+          <p className="text-sm font-medium text-slate-500">Planlæg service</p>
           <h1 className="text-[2rem] font-semibold tracking-[-0.04em] text-slate-950">
             Service
           </h1>
@@ -73,7 +75,7 @@ export function ServiceTab() {
               void triggerSync(true);
             }}
             className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/80 bg-white/90 text-slate-500 shadow-sm"
-            aria-label="Opdater serviceopsaetning"
+            aria-label="Opdater serviceopsætning"
           >
             <RefreshCw className={['h-4 w-4', isSyncing ? 'animate-spin' : ''].join(' ')} />
           </button>

@@ -26,9 +26,9 @@ export function ProfileTab() {
     return (
       <div className="px-4 pb-24 pt-10">
         <Card className="flex flex-col gap-3 rounded-[28px] border border-red-100 bg-white/95 p-6">
-          <h1 className="text-2xl font-semibold text-slate-950">Profilen kunne ikke indlaeses</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">Profilen kunne ikke indlæses</h1>
           <p className="text-sm text-slate-500">
-            Vi kunne ikke hente dine oplysninger lige nu. Proev igen.
+            Vi kunne ikke hente dine oplysninger lige nu. Prøv igen.
           </p>
           <Button
             type="button"
@@ -37,7 +37,7 @@ export function ProfileTab() {
               void mutate();
             }}
           >
-            Proev igen
+            Prøv igen
           </Button>
         </Card>
       </div>
