@@ -1,32 +1,38 @@
 import { getSession } from '@/lib/session';
-import { createServiceClient } from '@/lib/supabase/server';
+import { ensureBikeDeskSync } from '@/lib/bikedesk-sync';
+import { getCykelPlusBookingContext } from '@/lib/booking-context';
+import { listUserBikes } from '@/lib/app-bikes';
 import { PageHeader } from '@/components/layout/page-header';
 import { BookingWizard } from '@/components/booking/booking-wizard';
-import type { Bike } from '@/types';
 
 interface Props {
   searchParams: Promise<{ bikeId?: string }>;
 }
 
-async function getUserBikes(userId: string): Promise<Bike[]> {
-  const supabase = await createServiceClient();
-  const { data } = await supabase
-    .from('bikes')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  return (data ?? []) as Bike[];
-}
-
 export default async function BookPage({ searchParams }: Props) {
   const { bikeId } = await searchParams;
   const session = await getSession();
-  const bikes = await getUserBikes(session!.user.id);
+  if (!session) {
+    return null;
+  }
+
+  await ensureBikeDeskSync(session, { requireBikes: true });
+
+  const [bikes, bookingContext] = await Promise.all([
+    listUserBikes(session.user.id),
+    getCykelPlusBookingContext(),
+  ]);
 
   return (
     <div className="flex flex-col">
       <PageHeader title="Book service" backHref="/home" />
-      <BookingWizard bikes={bikes} initialBikeId={bikeId ?? null} />
+      <BookingWizard
+        bikes={bikes}
+        form={bookingContext.form}
+        serviceCatalog={bookingContext.serviceCatalog}
+        methodServiceTotals={bookingContext.methodServiceTotals}
+        initialBikeId={bikeId ?? null}
+      />
     </div>
   );
 }

@@ -3,26 +3,33 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CalendarDays, CreditCard, XCircle, CheckCircle, Clock, Bike as BikeIcon } from 'lucide-react';
+import {
+  CalendarDays,
+  CreditCard,
+  XCircle,
+  CheckCircle,
+  Clock,
+  Bike as BikeIcon,
+} from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookingStatusBadge } from '@/components/ui/badge';
 import { PageSpinner } from '@/components/ui/spinner';
-import type { Booking, Bike, BookingEvent } from '@/types';
+import type { Booking, BookingEvent, Bike } from '@/types';
 
-type BookingDetail = Booking & { bike: Bike; events: BookingEvent[] };
+type BookingDetail = Booking & { bike: Bike | null; events: BookingEvent[] };
 
 const methodLabels: Record<string, string> = {
   drop_off: 'Indlevering i butik',
   pickup: 'Afhentning & levering',
-  onsite: 'På arbejdsplads',
+  onsite: 'Paa arbejdsplads',
 };
 
 const eventLabels: Record<string, string> = {
   created: 'Booking oprettet',
   payment_sent: 'Betalingslink sendt',
-  confirmed: 'Booking bekræftet',
-  payment_expired: 'Betaling udløbet',
+  confirmed: 'Booking bekraeftet',
+  payment_expired: 'Betaling udloebet',
   cancelled: 'Booking annulleret',
 };
 
@@ -47,15 +54,14 @@ export default function BookingDetailPage() {
     fetchBooking();
   }, [fetchBooking]);
 
-  // Poll every 5s while awaiting payment
   useEffect(() => {
-    if (booking?.status !== 'awaiting_payment') return;
+    if (booking?.customer_status !== 'awaiting_payment') return;
     const interval = setInterval(fetchBooking, 5000);
     return () => clearInterval(interval);
-  }, [booking?.status, fetchBooking]);
+  }, [booking?.customer_status, fetchBooking]);
 
   const handleCancel = async () => {
-    if (!confirm('Er du sikker på, at du vil annullere denne booking?')) return;
+    if (!confirm('Er du sikker paa, at du vil annullere denne booking?')) return;
     setCancelling(true);
     setError(null);
     try {
@@ -75,7 +81,7 @@ export default function BookingDetailPage() {
     try {
       const res = await fetch(`/api/bookings/${bookingId}/resend-payment`, { method: 'POST' });
       if (!res.ok) throw new Error('Kunne ikke gensende betalingslink');
-      alert('Betalingslink gensendt!');
+      alert('Betalingslink gensendt');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fejl');
     } finally {
@@ -84,46 +90,54 @@ export default function BookingDetailPage() {
   };
 
   if (loading) return <PageSpinner />;
-  if (!booking) return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <p className="text-gray-500">Booking ikke fundet</p>
-    </div>
-  );
+  if (!booking) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <p className="text-gray-500">Booking ikke fundet</p>
+      </div>
+    );
+  }
 
-  const bikeName = [booking.bike?.brand, booking.bike?.model].filter(Boolean).join(' ') || 'Cykel';
-  const canCancel = ['booking_created', 'awaiting_payment'].includes(booking.status);
+  const bikeName =
+    [booking.bike?.brand, booking.bike?.model].filter(Boolean).join(' ') || 'Cykel';
+  const customerStatus = booking.customer_status ?? 'booking_created';
+  const canCancel =
+    customerStatus === 'booking_created' ||
+    customerStatus === 'awaiting_payment' ||
+    (customerStatus === 'booking_confirmed' && booking.method !== 'pickup');
 
   return (
     <div className="flex flex-col">
-      {/* Status banner */}
       <div
         className={[
           'px-4 py-5 safe-top',
-          booking.status === 'booking_confirmed'
+          customerStatus === 'completed'
             ? 'bg-green-600'
-            : booking.status === 'awaiting_payment'
-            ? 'bg-amber-500'
-            : booking.status === 'payment_expired'
-            ? 'bg-red-600'
-            : booking.status === 'cancelled'
-            ? 'bg-gray-500'
-            : 'bg-blue-600',
+            : customerStatus === 'awaiting_payment'
+              ? 'bg-amber-500'
+              : customerStatus === 'payment_expired'
+                ? 'bg-red-600'
+                : customerStatus === 'cancelled'
+                  ? 'bg-gray-500'
+                  : customerStatus === 'in_progress'
+                    ? 'bg-blue-700'
+                    : 'bg-blue-600',
         ].join(' ')}
       >
         <Link href="/bookings" className="mb-3 flex items-center gap-1 text-sm text-white/80">
           ← Alle bookinger
         </Link>
         <div className="flex items-center gap-3">
-          {booking.status === 'booking_confirmed' ? (
+          {customerStatus === 'completed' ? (
             <CheckCircle className="h-8 w-8 text-white" />
-          ) : booking.status === 'payment_expired' || booking.status === 'cancelled' ? (
+          ) : customerStatus === 'payment_expired' || customerStatus === 'cancelled' ? (
             <XCircle className="h-8 w-8 text-white" />
           ) : (
             <Clock className="h-8 w-8 text-white" />
           )}
           <div>
             <h1 className="text-xl font-bold text-white">{bikeName}</h1>
-            <BookingStatusBadge status={booking.status} />
+            <BookingStatusBadge status={customerStatus} />
           </div>
         </div>
       </div>
@@ -135,15 +149,14 @@ export default function BookingDetailPage() {
           </Card>
         )}
 
-        {/* Awaiting payment CTA */}
-        {booking.status === 'awaiting_payment' && (
+        {customerStatus === 'awaiting_payment' && (
           <Card className="flex flex-col gap-3 border border-amber-200 bg-amber-50">
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-amber-600" />
               <p className="font-semibold text-amber-900">Betaling afventes</p>
             </div>
             <p className="text-sm text-amber-800">
-              Betalingslinket er sendt til dit mobilnummer. Betal inden 24 timer for at bekræfte
+              Betalingslinket er sendt til dit mobilnummer. Betal inden 24 timer for at bekraefte
               din booking.
             </p>
             {booking.payment_link_url && (
@@ -154,7 +167,7 @@ export default function BookingDetailPage() {
                 className="w-full"
               >
                 <Button variant="primary" fullWidth>
-                  Åbn betalingslink
+                  Aabn betalingslink
                 </Button>
               </a>
             )}
@@ -170,22 +183,22 @@ export default function BookingDetailPage() {
           </Card>
         )}
 
-        {/* Payment expired CTA */}
-        {booking.status === 'payment_expired' && (
+        {customerStatus === 'payment_expired' && (
           <Card className="flex flex-col gap-3 border border-red-200 bg-red-50">
-            <p className="font-semibold text-red-900">Betaling udløbet</p>
+            <p className="font-semibold text-red-900">Betaling udloeber</p>
             <p className="text-sm text-red-800">
-              Betalingsvinduet er udløbet. Du er velkommen til at oprette en ny booking.
+              Betalingsvinduet er udloebet. Du er velkommen til at oprette en ny booking.
             </p>
-            <Link href={`/book?bikeId=${booking.bike_id}`}>
-              <Button variant="primary" fullWidth>
-                Book igen
-              </Button>
-            </Link>
+            {booking.bike_id && (
+              <Link href={`/book?bikeId=${booking.bike_id}`}>
+                <Button variant="primary" fullWidth>
+                  Book igen
+                </Button>
+              </Link>
+            )}
           </Card>
         )}
 
-        {/* Booking details */}
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Detaljer
@@ -203,41 +216,41 @@ export default function BookingDetailPage() {
               <div>
                 <p className="text-xs text-gray-400">Dato</p>
                 <p className="text-sm font-medium text-gray-900">
-                  {booking.scheduled_date
-                    ? new Date(booking.scheduled_date).toLocaleDateString('da-DK', {
+                  {booking.date
+                    ? new Date(booking.date).toLocaleDateString('da-DK', {
                         weekday: 'long',
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric',
                       })
                     : 'Ikke angivet'}
-                  {booking.scheduled_time ? ` kl. ${booking.scheduled_time}` : ''}
+                  {booking.time ? ` kl. ${booking.time}` : ''}
                 </p>
               </div>
             </div>
-            {booking.method && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <div className="h-4 w-4" />
-                <div>
-                  <p className="text-xs text-gray-400">Servicetype</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {methodLabels[booking.method] ?? booking.method}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="h-4 w-4" />
+              <div>
+                <p className="text-xs text-gray-400">Metode</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {methodLabels[booking.method] ?? booking.method}
+                </p>
               </div>
-            )}
-            {booking.service_type && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <div className="h-4 w-4" />
+            </div>
+            {booking.service_labels && booking.service_labels.length > 0 && (
+              <div className="flex items-start gap-3 px-4 py-3">
+                <div className="h-4 w-4 mt-0.5" />
                 <div>
                   <p className="text-xs text-gray-400">Service</p>
-                  <p className="text-sm font-medium text-gray-900">{booking.service_type}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {booking.service_labels.join(', ')}
+                  </p>
                 </div>
               </div>
             )}
             {booking.notes && (
               <div className="flex items-start gap-3 px-4 py-3">
-                <div className="h-4 w-4 mt-0.5" />
+                <div className="mt-0.5 h-4 w-4" />
                 <div>
                   <p className="text-xs text-gray-400">Note</p>
                   <p className="text-sm text-gray-900">{booking.notes}</p>
@@ -247,18 +260,17 @@ export default function BookingDetailPage() {
           </Card>
         </section>
 
-        {/* Timeline */}
         {booking.events.length > 0 && (
           <section>
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Hændelser
+              Haendelser
             </h2>
             <Card className="flex flex-col gap-3">
-              {booking.events.map((event, i) => (
+              {booking.events.map((event, index) => (
                 <div key={event.id} className="flex items-start gap-3">
                   <div className="relative flex flex-col items-center">
-                    <div className="h-2.5 w-2.5 rounded-full bg-blue-500 mt-1" />
-                    {i < booking.events.length - 1 && (
+                    <div className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-500" />
+                    {index < booking.events.length - 1 && (
                       <div className="mt-1 h-full w-px bg-gray-200" />
                     )}
                   </div>
@@ -276,7 +288,6 @@ export default function BookingDetailPage() {
           </section>
         )}
 
-        {/* Cancel */}
         {canCancel && (
           <Button
             variant="danger"

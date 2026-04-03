@@ -1,4 +1,4 @@
-import type { BookingStatus } from '@/types';
+import type { CustomerBookingStatus } from '@/types';
 
 type BadgeVariant = 'gray' | 'blue' | 'amber' | 'green' | 'red';
 
@@ -32,15 +32,18 @@ export function Badge({ variant = 'gray', children, className = '' }: BadgeProps
   );
 }
 
-const statusConfig: Record<BookingStatus, { label: string; variant: BadgeVariant }> = {
+const statusConfig: Record<CustomerBookingStatus, { label: string; variant: BadgeVariant }> = {
   booking_created: { label: 'Booking oprettet', variant: 'blue' },
   awaiting_payment: { label: 'Afventer betaling', variant: 'amber' },
-  booking_confirmed: { label: 'Bekræftet', variant: 'green' },
-  payment_expired: { label: 'Betaling udløbet', variant: 'red' },
+  booking_confirmed: { label: 'Bekraeftet', variant: 'green' },
+  in_progress: { label: 'I gang', variant: 'blue' },
+  quote: { label: 'Afventer tilbud', variant: 'amber' },
+  completed: { label: 'Faerdig', variant: 'green' },
+  payment_expired: { label: 'Betaling udloebet', variant: 'red' },
   cancelled: { label: 'Annulleret', variant: 'gray' },
 };
 
-export function BookingStatusBadge({ status }: { status: BookingStatus }) {
+export function BookingStatusBadge({ status }: { status: CustomerBookingStatus }) {
   const config = statusConfig[status];
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
