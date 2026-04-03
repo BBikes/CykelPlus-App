@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import { createServiceClient } from '@/lib/supabase/server';
-import { ensureBikeDeskSync } from '@/lib/bikedesk-sync';
+import { getBikeDeskSyncMeta } from '@/lib/bikedesk-sync';
 import { listUserBikes } from '@/lib/app-bikes';
 import { createCustomer, createCustomerArticle, findCustomerByPhone, updateCustomer } from '@/lib/bikedesk';
 import type { AppSession, BikedeskCustomer } from '@/types';
@@ -101,9 +101,11 @@ export async function GET() {
     return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
   }
 
-  await ensureBikeDeskSync(session, { requireBikes: true });
-  const bikes = await listUserBikes(session.user.id);
-  return NextResponse.json({ bikes });
+  const [bikes, sync] = await Promise.all([
+    listUserBikes(session.user.id),
+    getBikeDeskSyncMeta(session, { requireBikes: true }),
+  ]);
+  return NextResponse.json({ bikes, sync });
 }
 
 export async function POST(req: NextRequest) {

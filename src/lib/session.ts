@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import { cookies } from 'next/headers';
 import { createServiceClient } from './supabase/server';
 import type { AppUser, UserProfile, AppSession } from '@/types';
-import { COOKIE_NAME, SESSION_TTL_DAYS } from './session-constants';
+import { COOKIE_NAME, SESSION_TOUCH_THROTTLE_MS, SESSION_TTL_DAYS } from './session-constants';
 
 export function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
@@ -42,7 +42,15 @@ export async function clearSessionCookie(): Promise<void> {
   cookieStore.delete(COOKIE_NAME);
 }
 
-export async function getSession(): Promise<AppSession | null> {
+type SessionTouchStrategy = 'never' | 'throttled' | 'force';
+
+interface GetSessionOptions {
+  touch?: SessionTouchStrategy;
+}
+
+export async function getSession({
+  touch = 'throttled',
+}: GetSessionOptions = {}): Promise<AppSession | null> {
   const cookieStore = await cookies();
   const rawToken = cookieStore.get(COOKIE_NAME)?.value;
   if (!rawToken) return null;
@@ -52,7 +60,7 @@ export async function getSession(): Promise<AppSession | null> {
 
   const { data: session, error } = await supabase
     .from('user_sessions')
-    .select('user_id, expires_at')
+    .select('user_id, expires_at, last_used_at')
     .eq('token_hash', tokenHash)
     .maybeSingle();
 
@@ -62,12 +70,18 @@ export async function getSession(): Promise<AppSession | null> {
     return null;
   }
 
-  // Slide expiry
-  const newExpiry = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
-  await supabase
-    .from('user_sessions')
-    .update({ last_used_at: new Date().toISOString(), expires_at: newExpiry.toISOString() })
-    .eq('token_hash', tokenHash);
+  const lastUsedAt = session.last_used_at ? new Date(session.last_used_at).getTime() : 0;
+  const shouldTouch =
+    touch === 'force' ||
+    (touch === 'throttled' && Date.now() - lastUsedAt >= SESSION_TOUCH_THROTTLE_MS);
+
+  if (shouldTouch) {
+    const newExpiry = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+    await supabase
+      .from('user_sessions')
+      .update({ last_used_at: new Date().toISOString(), expires_at: newExpiry.toISOString() })
+      .eq('token_hash', tokenHash);
+  }
 
   const { data: user } = await supabase
     .from('users')

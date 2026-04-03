@@ -39,6 +39,24 @@ export interface AppSession {
   profile: UserProfile | null;
 }
 
+export interface SyncMeta {
+  lastSyncedAt: string | null;
+  syncRecommended: boolean;
+  syncing: boolean;
+}
+
+export interface AppShellSession {
+  session: AppSession;
+  greetingName: string;
+  initials: string;
+}
+
+export interface SessionPayload {
+  session: AppSession;
+  viewer: AppShellSession;
+  sync: SyncMeta;
+}
+
 export interface Bike {
   id: string;
   user_id: string;
@@ -52,6 +70,8 @@ export interface Bike {
   notes: string | null;
   created_at: string;
   primary_image_url?: string | null;
+  tracker_active?: boolean;
+  tracker_status?: TrackerAddon['status'] | null;
 }
 
 export interface BikeImage {
@@ -155,6 +175,32 @@ export interface ServiceReminder {
     interval_days: number;
   };
   bike?: Bike;
+}
+
+export interface HomePayload {
+  viewer: AppShellSession;
+  activeBooking: Booking | null;
+  reminders: Array<ServiceReminder & { bike: Bike | null }>;
+  bikes: Bike[];
+  sync: SyncMeta;
+}
+
+export interface BookingContextPayload {
+  bikes: Bike[];
+  form: BookingForm;
+  serviceCatalog: BikedeskServiceCatalog;
+  methodServiceTotals: BookingMethodServiceTotals;
+  sync: SyncMeta;
+}
+
+export interface BikesPayload {
+  bikes: Bike[];
+  sync: SyncMeta;
+}
+
+export interface BookingsPayload {
+  bookings: Booking[];
+  sync: SyncMeta;
 }
 
 export interface TrackerAddon {

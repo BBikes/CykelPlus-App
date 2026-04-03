@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { mutate } from 'swr';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { BIKES_API_KEY, BOOKING_CONTEXT_API_KEY, HOME_API_KEY, bikeApiKey } from '@/lib/api-keys';
 import type { Bike, VehicleTypeConfig } from '@/types';
 
 interface BikeFormProps {
@@ -62,8 +64,13 @@ export function BikeForm({
         throw new Error(data.error ?? 'Kunne ikke gemme cyklen');
       }
 
+      await Promise.all([
+        mutate(BIKES_API_KEY),
+        mutate(HOME_API_KEY),
+        mutate(BOOKING_CONTEXT_API_KEY),
+        data.bike?.id ? mutate(bikeApiKey(data.bike.id)) : Promise.resolve(undefined),
+      ]);
       router.push(`/garage/${data.bike.id}`);
-      router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Ukendt fejl');
     } finally {
@@ -73,14 +80,14 @@ export function BikeForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-4 pb-6 page-bottom-padding">
-      <Card className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-4 rounded-[28px] p-5">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <p className="mt-1 text-sm text-gray-500">{description}</p>
+          <h2 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -108,14 +115,14 @@ export function BikeForm({
           />
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="bike-type" className="text-sm font-medium text-gray-700">
+            <label htmlFor="bike-type" className="text-sm font-medium text-slate-600">
               Type
             </label>
             <select
               id="bike-type"
               value={form.type}
               onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="">Vaelg type</option>
               {vehicleTypes.map((vehicleType) => (
@@ -142,7 +149,7 @@ export function BikeForm({
         />
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="bike-notes" className="text-sm font-medium text-gray-700">
+          <label htmlFor="bike-notes" className="text-sm font-medium text-slate-600">
             Noter
           </label>
           <textarea
@@ -150,13 +157,13 @@ export function BikeForm({
             value={form.notes}
             onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
             rows={4}
-            className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full resize-none rounded-[24px] border border-slate-200 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
             placeholder="Fx daekstorrelsen, saerlige behov eller ekstra detaljer"
           />
         </div>
       </Card>
 
-      <Button type="submit" variant="primary" fullWidth loading={submitting}>
+      <Button type="submit" variant="primary" fullWidth loading={submitting} className="bg-slate-900">
         {bike ? 'Gem aendringer' : 'Opret cykel'}
       </Button>
     </form>

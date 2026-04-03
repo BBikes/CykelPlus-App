@@ -9,7 +9,6 @@ import {
   Wrench,
 } from 'lucide-react';
 import { getSession } from '@/lib/session';
-import { ensureBikeDeskSync } from '@/lib/bikedesk-sync';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getUserBike } from '@/lib/app-bikes';
 import { Card } from '@/components/ui/card';
@@ -61,7 +60,6 @@ export default async function BikeDetailPage({ params }: Props) {
   }
 
   const { bikeId } = await params;
-  await ensureBikeDeskSync(session, { requireBikes: true });
   const { bike, history, reminders, tracker } = await getBikePageData(session.user.id, bikeId);
 
   if (!bike) {

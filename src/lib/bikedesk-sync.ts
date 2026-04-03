@@ -18,11 +18,18 @@ import type {
   Booking,
   BookingMethod,
   SharedBookingStatus,
+  SyncMeta,
 } from '@/types';
 import { CYKELPLUS_BOOKING_FORM_SLUG } from './booking-context';
 
 const SYNC_WINDOW_MS = 15 * 60 * 1000;
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+export interface BikeDeskSyncOptions {
+  requireBikes?: boolean;
+  requireBookings?: boolean;
+  force?: boolean;
+}
 
 function splitName(name: string): { firstName: string | null; lastName: string | null } {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -316,14 +323,11 @@ export async function syncUserFromBikedesk(user: AppUser): Promise<void> {
   );
 }
 
-export async function ensureBikeDeskSync(
-  session: AppSession,
-  options: { requireBikes?: boolean; requireBookings?: boolean; force?: boolean } = {}
-): Promise<void> {
+async function getRequiredDataResults(
+  user: AppUser,
+  options: BikeDeskSyncOptions
+): Promise<Array<{ count: number | null }>> {
   const supabase = await createServiceClient();
-  const user = session.user;
-  const lastSyncAt = user.last_bikedesk_sync_at ? new Date(user.last_bikedesk_sync_at).getTime() : 0;
-  const isStale = !lastSyncAt || Date.now() - lastSyncAt > SYNC_WINDOW_MS;
   const extensionsSupported = await supportsBookingExtensions();
 
   const checks: Array<Promise<{ count: number | null }>> = [];
@@ -350,10 +354,34 @@ export async function ensureBikeDeskSync(
     );
   }
 
-  const results = await Promise.all(checks);
+  return Promise.all(checks);
+}
+
+export async function getBikeDeskSyncMeta(
+  session: AppSession,
+  options: BikeDeskSyncOptions = {}
+): Promise<SyncMeta> {
+  const user = session.user;
+  const lastSyncAt = user.last_bikedesk_sync_at ? new Date(user.last_bikedesk_sync_at).getTime() : 0;
+  const isStale = !lastSyncAt || Date.now() - lastSyncAt > SYNC_WINDOW_MS;
+  const results = await getRequiredDataResults(user, options);
   const missingRequiredData = results.some((result) => (result.count ?? 0) === 0);
 
-  if (!options.force && !isStale && !missingRequiredData) {
+  return {
+    lastSyncedAt: user.last_bikedesk_sync_at,
+    syncRecommended: Boolean(options.force || isStale || missingRequiredData),
+    syncing: false,
+  };
+}
+
+export async function ensureBikeDeskSync(
+  session: AppSession,
+  options: BikeDeskSyncOptions = {}
+): Promise<void> {
+  const user = session.user;
+  const syncMeta = await getBikeDeskSyncMeta(session, options);
+
+  if (!syncMeta.syncRecommended) {
     return;
   }
 

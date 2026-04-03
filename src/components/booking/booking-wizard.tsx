@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bike as BikeIcon,
@@ -14,6 +14,7 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react';
+import { mutate } from 'swr';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -23,6 +24,7 @@ import {
   generateTimeSlots,
   isDateBlocked,
 } from '@/lib/booking/availability';
+import { BOOKINGS_API_KEY, HOME_API_KEY } from '@/lib/api-keys';
 import type {
   Bike,
   BookingForm,
@@ -87,6 +89,40 @@ function getTemplatePrice(template: {
   return template.computed_price ?? template.price ?? template.raw_price ?? 0;
 }
 
+function getStepTitle(step: number): string {
+  if (step === 1) return 'Vaelg Koeretoj';
+  if (step === 2) return 'Vaelg Service';
+  if (step === 3) return 'Dato og metode';
+  return 'Bekraeft booking';
+}
+
+function getStepDescription(step: number): string {
+  if (step === 1) return 'Vaelg den cykel, som skal have service.';
+  if (step === 2) return 'Vi viser kun services, der passer til din cykel.';
+  if (step === 3) return 'Vaelg hvordan og hvornar servicen skal ske.';
+  return 'Gennemgaa dine valg, foer vi sender bookinganmodningen.';
+}
+
+function SummaryRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5">{icon}</div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+        <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export function BookingWizard({
   bikes,
   form,
@@ -95,8 +131,10 @@ export function BookingWizard({
   initialBikeId,
 }: BookingWizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState(initialBikeId ? 2 : 1);
-  const [selectedBikeId, setSelectedBikeId] = useState<string | null>(initialBikeId ?? null);
+  const initialSelectedBike =
+    initialBikeId && bikes.some((bike) => bike.id === initialBikeId) ? initialBikeId : null;
+  const [step, setStep] = useState(initialSelectedBike ? 2 : 1);
+  const [selectedBikeId, setSelectedBikeId] = useState<string | null>(initialSelectedBike);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<BookingMethod | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -114,8 +152,6 @@ export function BookingWizard({
   const [error, setError] = useState<string | null>(null);
 
   const selectedBike = bikes.find((bike) => bike.id === selectedBikeId) ?? null;
-  const selectedTemplate =
-    serviceCatalog.templates.find((template) => template.id === selectedTemplateId) ?? null;
   const config = form.config;
   const methodLabels = config.method_labels ?? DEFAULT_METHOD_LABELS;
   const enabledMethods = [
@@ -129,6 +165,23 @@ export function BookingWizard({
       setSelectedMethod(enabledMethods[0]);
     }
   }, [enabledMethods, selectedMethod]);
+
+  const filteredTemplates = useMemo(() => {
+    return serviceCatalog.templates.filter((template) => {
+      const allowedTypes = config.template_vehicle_types?.[template.id] ?? [];
+      if (allowedTypes.length === 0 || !selectedBike?.type) {
+        return true;
+      }
+
+      return allowedTypes.includes(selectedBike.type);
+    });
+  }, [config.template_vehicle_types, selectedBike?.type, serviceCatalog.templates]);
+
+  useEffect(() => {
+    if (selectedTemplateId && !filteredTemplates.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId(null);
+    }
+  }, [filteredTemplates, selectedTemplateId]);
 
   useEffect(() => {
     if (!selectedMethod) {
@@ -187,34 +240,21 @@ export function BookingWizard({
 
   if (bikes.length === 0) {
     return (
-      <div className="flex flex-col gap-4 px-4 pt-6 page-bottom-padding">
-        <Card className="flex flex-col gap-3">
-          <h2 className="text-xl font-semibold text-gray-900">Ingen cykler endnu</h2>
-          <p className="text-sm text-gray-600">
-            Tilfoej en cykel i din garage foer du kan booke service fra appen.
-          </p>
-          <Link href="/garage/new">
-            <Button variant="primary" fullWidth>
-              Tilfoej cykel
-            </Button>
-          </Link>
-        </Card>
-      </div>
+      <Card className="flex flex-col gap-4 rounded-[28px] p-6">
+        <h2 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950">
+          Ingen cykler endnu
+        </h2>
+        <p className="text-sm leading-6 text-slate-500">
+          Tilfoej en cykel i din garage foer du kan booke service fra appen.
+        </p>
+        <Link href="/garage/new">
+          <Button variant="primary" className="rounded-2xl bg-slate-900">
+            Tilfoej cykel
+          </Button>
+        </Link>
+      </Card>
     );
   }
-
-  const filteredTemplates = serviceCatalog.templates.filter((template) => {
-    const allowedTypes = config.template_vehicle_types?.[template.id] ?? [];
-    if (allowedTypes.length === 0) {
-      return true;
-    }
-
-    if (!selectedBike?.type) {
-      return true;
-    }
-
-    return allowedTypes.includes(selectedBike.type);
-  });
 
   const groupedTemplates = serviceCatalog.groups
     .map((group) => ({
@@ -227,7 +267,7 @@ export function BookingWizard({
     (template) => !serviceCatalog.groups.some((group) => group.id === template.groupid)
   );
 
-  const calendarSettings = config.calendar_settings;
+  const calendarSettings = form.config.calendar_settings;
   const timeSlots =
     selectedMethod && calendarSettings
       ? selectedMethod === 'drop_off' && calendarSettings.workshop_time_slot_enabled
@@ -270,8 +310,10 @@ export function BookingWizard({
     return days;
   })();
 
+  const showBudget = form.config.enable_budget_module;
+  const selectedTemplate =
+    serviceCatalog.templates.find((template) => template.id === selectedTemplateId) ?? null;
   const canProceedDate = selectedDate && (!timeSlots.length || selectedTime);
-  const showBudget = config.enable_budget_module;
 
   function isBlocked(dateString: string): boolean {
     if (!calendarSettings || !selectedMethod) {
@@ -289,6 +331,18 @@ export function BookingWizard({
     }
 
     return isDateBlocked(dateString, calendarSettings, bookingCounts, getMethodKey(selectedMethod));
+  }
+
+  function canContinue(): boolean {
+    if (step === 1) return Boolean(selectedBikeId);
+    if (step === 2) return Boolean(selectedTemplateId);
+    if (step === 3) return Boolean(canProceedDate);
+    return true;
+  }
+
+  function handleContinue() {
+    if (!canContinue()) return;
+    setStep((current) => Math.min(4, current + 1));
   }
 
   async function handleSubmit() {
@@ -320,7 +374,8 @@ export function BookingWizard({
         throw new Error(data.error ?? 'Kunne ikke oprette booking');
       }
 
-      router.push(`/book/confirm?bookingId=${data.booking.id}`);
+      await Promise.all([mutate(HOME_API_KEY), mutate(BOOKINGS_API_KEY)]);
+      router.push(`/bookings/${data.booking.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Ukendt fejl');
     } finally {
@@ -329,44 +384,75 @@ export function BookingWizard({
   }
 
   return (
-    <div className="flex flex-col gap-5 px-4 pt-4 page-bottom-padding">
-      <div className="flex items-center gap-1">
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between text-sm font-medium text-slate-500">
+        {step === 1 ? (
+          <Link href="/home" className="transition-colors hover:text-slate-700">
+            Annuller
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setStep((current) => Math.max(1, current - 1))}
+            className="inline-flex items-center gap-1 transition-colors hover:text-slate-700"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Tilbage
+          </button>
+        )}
+        <span>Trin {step} af 4</span>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
         {[1, 2, 3, 4].map((value) => (
           <div
             key={value}
             className={[
-              'h-1.5 flex-1 rounded-full transition-colors',
-              value <= step ? 'bg-blue-600' : 'bg-gray-200',
+              'h-1.5 rounded-full transition-colors',
+              value <= step ? 'bg-slate-900' : 'bg-slate-200',
             ].join(' ')}
           />
         ))}
       </div>
 
+      <div className="space-y-1">
+        <h2 className="text-[1.9rem] font-semibold leading-none tracking-[-0.04em] text-slate-950">
+          {getStepTitle(step)}
+        </h2>
+        <p className="text-sm leading-6 text-slate-500">{getStepDescription(step)}</p>
+      </div>
+
       {step === 1 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-xl font-bold text-gray-900">Vaelg cykel</h2>
+        <div className="space-y-3">
           {bikes.map((bike) => {
             const displayName = [bike.brand, bike.model].filter(Boolean).join(' ') || 'Ukendt cykel';
+            const selected = selectedBikeId === bike.id;
+
             return (
               <button
                 key={bike.id}
-                onClick={() => {
-                  setSelectedBikeId(bike.id);
-                  setStep(2);
-                }}
+                type="button"
+                onClick={() => setSelectedBikeId(bike.id)}
                 className={[
-                  'w-full rounded-2xl border-2 p-4 text-left transition-colors',
-                  selectedBikeId === bike.id ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white',
+                  'w-full rounded-[24px] border px-4 py-4 text-left transition-colors',
+                  selected
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-[0_18px_44px_-28px_rgba(15,23,42,0.95)]'
+                    : 'border-white/80 bg-white/92 text-slate-900',
                 ].join(' ')}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
-                    <BikeIcon className="h-6 w-6 text-gray-400" />
+                <div className="flex items-center gap-4">
+                  <div
+                    className={[
+                      'flex h-14 w-14 items-center justify-center rounded-[18px]',
+                      selected ? 'bg-white/15 text-white' : 'bg-blue-50 text-blue-600',
+                    ].join(' ')}
+                  >
+                    <BikeIcon className="h-6 w-6" />
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{displayName}</p>
-                    <p className="text-sm text-gray-500">
-                      {[bike.year, bike.type].filter(Boolean).join(' · ') || 'Ingen detaljer'}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-semibold">{displayName}</p>
+                    <p className={['truncate text-sm', selected ? 'text-white/70' : 'text-slate-500'].join(' ')}>
+                      {[bike.type, bike.color].filter(Boolean).join(' - ') || 'Klar til service'}
                     </p>
                   </div>
                 </div>
@@ -377,396 +463,515 @@ export function BookingWizard({
       )}
 
       {step === 2 && (
-        <div className="flex flex-col gap-4">
-          <button
-            onClick={() => setStep(1)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Tilbage
-          </button>
-
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Vaelg service</h2>
-            {config.service_message && (
-              <p className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                {config.service_message}
-              </p>
-            )}
-          </div>
-
-          {serviceCatalog.sync_error && filteredTemplates.length === 0 ? (
-            <Card className="border border-red-200 bg-red-50">
-              <p className="text-sm text-red-700">
-                Kunne ikke hente services. Proev at genindlaese siden.
-              </p>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-5">
-              {groupedTemplates.map(({ group, items }) => (
-                <section key={group.id} className="flex flex-col gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    {group.name || group.label}
-                  </p>
-                  {items.map((template) => {
-                    const price =
-                      config.template_price_overrides?.[template.id] ??
-                      getTemplatePrice(template);
-                    return (
-                      <button
-                        key={template.id}
-                        onClick={() => {
-                          setSelectedTemplateId(template.id);
-                          setStep(3);
-                        }}
-                        className="w-full rounded-2xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-blue-400 hover:bg-blue-50"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-semibold text-gray-900">{template.label}</p>
-                            {template.note && (
-                              <p className="mt-1 text-sm text-gray-500">{template.note}</p>
-                            )}
-                          </div>
-                          {!config.hide_prices && price > 0 && (
-                            <span className="shrink-0 text-sm font-semibold text-gray-700">
-                              {price.toLocaleString('da-DK')} kr.
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </section>
-              ))}
-
-              {ungroupedTemplates.map((template) => {
-                const price =
-                  config.template_price_overrides?.[template.id] ??
-                  getTemplatePrice(template);
-                return (
-                  <button
-                    key={template.id}
-                    onClick={() => {
-                      setSelectedTemplateId(template.id);
-                      setStep(3);
-                    }}
-                    className="w-full rounded-2xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-blue-400 hover:bg-blue-50"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-semibold text-gray-900">{template.label}</p>
-                        {template.note && (
-                          <p className="mt-1 text-sm text-gray-500">{template.note}</p>
-                        )}
-                      </div>
-                      {!config.hide_prices && price > 0 && (
-                        <span className="shrink-0 text-sm font-semibold text-gray-700">
-                          {price.toLocaleString('da-DK')} kr.
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <StepTwo
+          config={config}
+          groupedTemplates={groupedTemplates}
+          ungroupedTemplates={ungroupedTemplates}
+          selectedTemplateId={selectedTemplateId}
+          setSelectedTemplateId={setSelectedTemplateId}
+          syncError={serviceCatalog.sync_error}
+        />
       )}
 
       {step === 3 && (
-        <div className="flex flex-col gap-4">
-          <button
-            onClick={() => setStep(2)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Tilbage
-          </button>
+        <StepThree
+          calendarMonth={calendarMonth}
+          calendarSettings={calendarSettings}
+          daysInMonth={daysInMonth}
+          enabledMethods={enabledMethods}
+          isBlocked={isBlocked}
+          loadingAvailability={loadingAvailability}
+          methodLabels={methodLabels}
+          methodServiceTotals={methodServiceTotals}
+          selectedDate={selectedDate}
+          selectedMethod={selectedMethod}
+          selectedTime={selectedTime}
+          setCalendarMonth={setCalendarMonth}
+          setSelectedDate={setSelectedDate}
+          setSelectedMethod={setSelectedMethod}
+          setSelectedTime={setSelectedTime}
+          timeSlots={timeSlots}
+        />
+      )}
 
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Vaelg dato og metode</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Ledige dage styres af Booking-indstillingerne for formularen.
-            </p>
+      {step === 4 && (
+        <StepFour
+          budgetLimit={budgetLimit}
+          budgetQuote={budgetQuote}
+          error={error}
+          form={form}
+          methodLabels={methodLabels}
+          notes={notes}
+          selectedBike={selectedBike}
+          selectedDate={selectedDate}
+          selectedMethod={selectedMethod}
+          selectedTemplate={selectedTemplate}
+          selectedTime={selectedTime}
+          setBudgetLimit={setBudgetLimit}
+          setBudgetQuote={setBudgetQuote}
+          setNotes={setNotes}
+          showBudget={showBudget}
+        />
+      )}
+
+      <div className="sticky bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom,0px)+0.5rem)] z-20 mt-2">
+        <Card className="rounded-[28px] bg-white/96 p-3 shadow-[0_24px_54px_-30px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+          {step === 4 ? (
+            <Button variant="primary" fullWidth loading={submitting} onClick={handleSubmit}>
+              {submitting ? 'Sender booking...' : 'Send booking'}
+            </Button>
+          ) : (
+            <Button variant="primary" fullWidth disabled={!canContinue()} onClick={handleContinue}>
+              Naeste Trin
+            </Button>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function StepTwo({
+  config,
+  groupedTemplates,
+  ungroupedTemplates,
+  selectedTemplateId,
+  setSelectedTemplateId,
+  syncError,
+}: {
+  config: BookingForm['config'];
+  groupedTemplates: Array<{
+    group: { id: number; name: string; label?: string };
+    items: BikedeskServiceCatalog['templates'];
+  }>;
+  ungroupedTemplates: BikedeskServiceCatalog['templates'];
+  selectedTemplateId: number | null;
+  setSelectedTemplateId: (value: number) => void;
+  syncError: string | null;
+}) {
+  if (syncError && groupedTemplates.length === 0 && ungroupedTemplates.length === 0) {
+    return (
+      <Card className="rounded-[24px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Kunne ikke hente services. Proev at genindlaese siden.
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {config.service_message && (
+        <Card className="rounded-[24px] bg-blue-50/80 p-4 text-sm text-blue-700">
+          {config.service_message}
+        </Card>
+      )}
+
+      {groupedTemplates.map(({ group, items }) => (
+        <section key={group.id} className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+            {group.name || group.label}
+          </p>
+          <div className="space-y-3">
+            {items.map((template) => (
+              <TemplateCard
+                key={template.id}
+                config={config}
+                selected={selectedTemplateId === template.id}
+                template={template}
+                onSelect={() => setSelectedTemplateId(template.id)}
+              />
+            ))}
           </div>
+        </section>
+      ))}
 
-          <div className={`grid gap-3 ${enabledMethods.length === 3 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            {enabledMethods.map((method) => {
-              const { Icon, description } = METHOD_META[method];
-              const total = methodServiceTotals[getMethodKey(method)] ?? 0;
-              const selected = selectedMethod === method;
-              return (
-                <button
-                  key={method}
-                  onClick={() => {
-                    setSelectedMethod(method);
-                    setSelectedDate(null);
-                    setSelectedTime(null);
-                  }}
+      {ungroupedTemplates.map((template) => (
+        <TemplateCard
+          key={template.id}
+          config={config}
+          selected={selectedTemplateId === template.id}
+          template={template}
+          onSelect={() => setSelectedTemplateId(template.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TemplateCard({
+  config,
+  onSelect,
+  selected,
+  template,
+}: {
+  config: BookingForm['config'];
+  onSelect: () => void;
+  selected: boolean;
+  template: BikedeskServiceCatalog['templates'][number];
+}) {
+  const price = config.template_price_overrides?.[template.id] ?? getTemplatePrice(template);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={[
+        'w-full rounded-[24px] border px-4 py-4 text-left transition-colors',
+        selected
+          ? 'border-slate-900 bg-slate-900 text-white shadow-[0_18px_44px_-28px_rgba(15,23,42,0.95)]'
+          : 'border-white/80 bg-white/92 text-slate-900',
+      ].join(' ')}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-base font-semibold">{template.label}</p>
+          {template.note && (
+            <p className={['mt-1 text-sm leading-6', selected ? 'text-white/70' : 'text-slate-500'].join(' ')}>
+              {template.note}
+            </p>
+          )}
+        </div>
+        {!config.hide_prices && price > 0 && (
+          <span
+            className={[
+              'shrink-0 rounded-full px-3 py-1 text-sm font-semibold',
+              selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-700',
+            ].join(' ')}
+          >
+            {price.toLocaleString('da-DK')} kr.
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function StepThree({
+  calendarMonth,
+  calendarSettings,
+  daysInMonth,
+  enabledMethods,
+  isBlocked,
+  loadingAvailability,
+  methodLabels,
+  methodServiceTotals,
+  selectedDate,
+  selectedMethod,
+  selectedTime,
+  setCalendarMonth,
+  setSelectedDate,
+  setSelectedMethod,
+  setSelectedTime,
+  timeSlots,
+}: {
+  calendarMonth: Date;
+  calendarSettings: BookingForm['config']['calendar_settings'];
+  daysInMonth: Array<string | null>;
+  enabledMethods: BookingMethod[];
+  isBlocked: (dateString: string) => boolean;
+  loadingAvailability: boolean;
+  methodLabels: MethodLabels;
+  methodServiceTotals: BookingMethodServiceTotals;
+  selectedDate: string | null;
+  selectedMethod: BookingMethod | null;
+  selectedTime: string | null;
+  setCalendarMonth: React.Dispatch<React.SetStateAction<Date>>;
+  setSelectedDate: React.Dispatch<React.SetStateAction<string | null>>;
+  setSelectedMethod: React.Dispatch<React.SetStateAction<BookingMethod | null>>;
+  setSelectedTime: React.Dispatch<React.SetStateAction<string | null>>;
+  timeSlots: string[];
+}) {
+  return (
+    <div className="space-y-4">
+      <div className={`grid gap-3 ${enabledMethods.length === 3 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {enabledMethods.map((method) => {
+          const { Icon, description } = METHOD_META[method];
+          const total = methodServiceTotals[getMethodKey(method)] ?? 0;
+          const selected = selectedMethod === method;
+
+          return (
+            <button
+              key={method}
+              type="button"
+              onClick={() => {
+                setSelectedMethod(method);
+                setSelectedDate(null);
+                setSelectedTime(null);
+              }}
+              className={[
+                'rounded-[24px] border px-4 py-4 text-left transition-colors',
+                selected
+                  ? 'border-slate-900 bg-slate-900 text-white shadow-[0_18px_44px_-28px_rgba(15,23,42,0.95)]'
+                  : 'border-white/80 bg-white/92 text-slate-900',
+              ].join(' ')}
+            >
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div
                   className={[
-                    'rounded-2xl border-2 p-4 text-left transition-colors',
-                    selected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white',
+                    'flex h-11 w-11 items-center justify-center rounded-full',
+                    selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500',
                   ].join(' ')}
                 >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-full ${selected ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    {total > 0 && (
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${selected ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                        {total.toLocaleString('da-DK')} kr.
-                      </span>
-                    )}
-                  </div>
-                  <p className="font-semibold text-gray-900">
-                    {getMethodLabel(method, methodLabels)}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">{description}</p>
+                  <Icon className="h-5 w-5" />
+                </div>
+                {total > 0 && (
+                  <span
+                    className={[
+                      'rounded-full px-3 py-1 text-xs font-semibold',
+                      selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600',
+                    ].join(' ')}
+                  >
+                    {total.toLocaleString('da-DK')} kr.
+                  </span>
+                )}
+              </div>
+              <p className="font-semibold">{getMethodLabel(method, methodLabels)}</p>
+              <p className={['mt-1 text-sm leading-6', selected ? 'text-white/70' : 'text-slate-500'].join(' ')}>
+                {description}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedMethod && (
+        <Card className="space-y-4 rounded-[28px] p-5">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() =>
+                setCalendarMonth(
+                  new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
+                )
+              }
+              className="rounded-2xl p-2 text-slate-500 transition-colors hover:bg-slate-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-semibold capitalize text-slate-700">
+              {calendarMonth.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' })}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setCalendarMonth(
+                  new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
+                )
+              }
+              className="rounded-2xl p-2 text-slate-500 transition-colors hover:bg-slate-100"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {['Ma', 'Ti', 'On', 'To', 'Fr', 'Lo', 'So'].map((label) => (
+              <div key={label} className="py-1 text-center text-xs font-medium text-slate-400">
+                {label}
+              </div>
+            ))}
+            {daysInMonth.map((day, index) => {
+              if (!day) {
+                return <div key={`empty-${index}`} />;
+              }
+
+              const blocked = isBlocked(day);
+              const selected = selectedDate === day;
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  disabled={blocked}
+                  onClick={() => {
+                    setSelectedDate(day);
+                    if (!timeSlots.length) {
+                      setSelectedTime(null);
+                    }
+                  }}
+                  className={[
+                    'aspect-square rounded-2xl text-sm font-medium transition-colors',
+                    blocked
+                      ? 'cursor-not-allowed bg-slate-50 text-slate-300'
+                      : selected
+                        ? 'bg-slate-900 text-white shadow-[0_16px_34px_-22px_rgba(15,23,42,0.95)]'
+                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100',
+                  ].join(' ')}
+                >
+                  {new Date(day).getDate()}
                 </button>
               );
             })}
           </div>
 
-          {selectedMethod && (
-            <Card className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() =>
-                    setCalendarMonth(
-                      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
-                    )
-                  }
-                  className="rounded-lg p-1.5 hover:bg-gray-100"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="text-sm font-semibold text-gray-700 capitalize">
-                  {calendarMonth.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' })}
-                </span>
-                <button
-                  onClick={() =>
-                    setCalendarMonth(
-                      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
-                    )
-                  }
-                  className="rounded-lg p-1.5 hover:bg-gray-100"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
+          {loadingAvailability && <p className="text-sm text-slate-500">Henter kapacitet...</p>}
 
-              <div className="grid grid-cols-7 gap-0.5">
-                {['Ma', 'Ti', 'On', 'To', 'Fr', 'Lo', 'So'].map((label) => (
-                  <div key={label} className="py-1 text-center text-xs text-gray-400">
-                    {label}
-                  </div>
+          {timeSlots.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <Clock3 className="h-4 w-4" />
+                Vaelg tidspunkt
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {timeSlots.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => setSelectedTime(slot)}
+                    className={[
+                      'rounded-2xl border px-3 py-3 text-sm font-semibold transition-colors',
+                      selectedTime === slot
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-slate-50 text-slate-700',
+                    ].join(' ')}
+                  >
+                    {slot}
+                  </button>
                 ))}
-                {daysInMonth.map((day, index) => {
-                  if (!day) {
-                    return <div key={`empty-${index}`} />;
-                  }
-
-                  const blocked = isBlocked(day);
-                  const selected = selectedDate === day;
-                  return (
-                    <button
-                      key={day}
-                      disabled={blocked}
-                      onClick={() => {
-                        setSelectedDate(day);
-                        if (!timeSlots.length) {
-                          setSelectedTime(null);
-                        }
-                      }}
-                      className={[
-                        'aspect-square rounded-lg text-sm transition-colors',
-                        blocked
-                          ? 'cursor-not-allowed bg-gray-50 text-gray-300'
-                          : selected
-                            ? 'bg-blue-600 text-white'
-                            : 'hover:bg-blue-50 text-gray-700',
-                      ].join(' ')}
-                    >
-                      {new Date(day).getDate()}
-                    </button>
-                  );
-                })}
               </div>
-
-              {loadingAvailability && (
-                <p className="text-sm text-gray-500">Henter kapacitet...</p>
-              )}
-
-              {timeSlots.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Clock3 className="h-4 w-4" />
-                    Vaelg tidspunkt
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {timeSlots.map((slot) => (
-                      <button
-                        key={slot}
-                        onClick={() => setSelectedTime(slot)}
-                        className={[
-                          'rounded-xl border-2 py-2 text-sm font-medium transition-colors',
-                          selectedTime === slot
-                            ? 'border-blue-600 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 bg-white text-gray-700',
-                        ].join(' ')}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
+            </div>
           )}
 
-          <Button
-            variant="primary"
-            fullWidth
-            disabled={!canProceedDate}
-            onClick={() => setStep(4)}
-          >
-            Fortsaet
-          </Button>
-        </div>
-      )}
-
-      {step === 4 && (
-        <div className="flex flex-col gap-4">
-          <button
-            onClick={() => setStep(3)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Tilbage
-          </button>
-
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Bekraeft booking</h2>
-            {config.booking_message && (
-              <p className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                {config.booking_message}
-              </p>
-            )}
-          </div>
-
-          {error && (
-            <Card className="border border-red-200 bg-red-50">
-              <p className="text-sm text-red-700">{error}</p>
-            </Card>
+          {!calendarSettings && (
+            <p className="text-sm text-slate-500">Kalenderen er ikke sat op endnu.</p>
           )}
-
-          <Card className="flex flex-col gap-3">
-            <SummaryRow
-              icon={<BikeIcon className="h-4 w-4 text-gray-400" />}
-              label="Cykel"
-              value={[selectedBike?.brand, selectedBike?.model].filter(Boolean).join(' ') || 'Ukendt cykel'}
-            />
-            <SummaryRow
-              icon={<Wrench className="h-4 w-4 text-gray-400" />}
-              label="Service"
-              value={selectedTemplate?.label ?? 'Ikke valgt'}
-            />
-            <SummaryRow
-              icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
-              label="Dato"
-              value={
-                selectedDate
-                  ? `${formatDateToDanish(selectedDate)}${selectedTime ? ` kl. ${selectedTime}` : ''}`
-                  : 'Ikke valgt'
-              }
-            />
-            <SummaryRow
-              icon={<Clock3 className="h-4 w-4 text-gray-400" />}
-              label="Metode"
-              value={selectedMethod ? getMethodLabel(selectedMethod, methodLabels) : 'Ikke valgt'}
-            />
-          </Card>
-
-          {showBudget && (
-            <Card className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Budgetgraense</p>
-                  <p className="text-sm text-gray-500">
-                    Vi kontakter dig hvis arbejdet overstiger beloebet.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setBudgetQuote((value) => !value)}
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${budgetQuote ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
-                >
-                  {budgetQuote ? 'Kun tilbud' : 'Fast budget'}
-                </button>
-              </div>
-              {!budgetQuote && (
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={300}
-                    max={3000}
-                    step={100}
-                    value={budgetLimit}
-                    onChange={(event) => setBudgetLimit(Number(event.target.value))}
-                    className="flex-1"
-                  />
-                  <span className="w-20 text-right text-sm font-semibold text-gray-800">
-                    {budgetLimit} kr.
-                  </span>
-                </div>
-              )}
-            </Card>
-          )}
-
-          <Card className="flex flex-col gap-3">
-            <label className="text-sm font-medium text-gray-700" htmlFor="booking-notes">
-              Bemerkninger
-            </label>
-            <textarea
-              id="booking-notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={4}
-              placeholder="Fx gear springer, bremser knirker eller andre detaljer"
-              className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {selectedMethod === 'pickup' && (
-              <p className="text-sm text-amber-700">
-                Pickup-bookinger bliver foerst bekraeftet, naar betalingen er registreret.
-              </p>
-            )}
-          </Card>
-
-          <Button variant="primary" fullWidth loading={submitting} onClick={handleSubmit}>
-            {submitting ? 'Sender booking...' : 'Send booking'}
-          </Button>
-        </div>
+        </Card>
       )}
     </div>
   );
 }
 
-function SummaryRow({
-  icon,
-  label,
-  value,
+function StepFour({
+  budgetLimit,
+  budgetQuote,
+  error,
+  form,
+  methodLabels,
+  notes,
+  selectedBike,
+  selectedDate,
+  selectedMethod,
+  selectedTemplate,
+  selectedTime,
+  setBudgetLimit,
+  setBudgetQuote,
+  setNotes,
+  showBudget,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
+  budgetLimit: number;
+  budgetQuote: boolean;
+  error: string | null;
+  form: BookingForm;
+  methodLabels: MethodLabels;
+  notes: string;
+  selectedBike: Bike | null;
+  selectedDate: string | null;
+  selectedMethod: BookingMethod | null;
+  selectedTemplate: BikedeskServiceCatalog['templates'][number] | null;
+  selectedTime: string | null;
+  setBudgetLimit: React.Dispatch<React.SetStateAction<number>>;
+  setBudgetQuote: React.Dispatch<React.SetStateAction<boolean>>;
+  setNotes: React.Dispatch<React.SetStateAction<string>>;
+  showBudget: boolean;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5">{icon}</div>
-      <div>
-        <p className="text-xs text-gray-400">{label}</p>
-        <p className="text-sm font-medium text-gray-900">{value}</p>
-      </div>
+    <div className="space-y-4">
+      {form.config.booking_message && (
+        <Card className="rounded-[24px] bg-blue-50/80 p-4 text-sm text-blue-700">
+          {form.config.booking_message}
+        </Card>
+      )}
+
+      {error && (
+        <Card className="rounded-[24px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </Card>
+      )}
+
+      <Card className="space-y-4 rounded-[28px] p-5">
+        <SummaryRow
+          icon={<BikeIcon className="h-4 w-4 text-slate-400" />}
+          label="Cykel"
+          value={[selectedBike?.brand, selectedBike?.model].filter(Boolean).join(' ') || 'Ukendt cykel'}
+        />
+        <SummaryRow
+          icon={<Wrench className="h-4 w-4 text-slate-400" />}
+          label="Service"
+          value={selectedTemplate?.label ?? 'Ikke valgt'}
+        />
+        <SummaryRow
+          icon={<CalendarDays className="h-4 w-4 text-slate-400" />}
+          label="Dato"
+          value={
+            selectedDate
+              ? `${formatDateToDanish(selectedDate)}${selectedTime ? ` kl. ${selectedTime}` : ''}`
+              : 'Ikke valgt'
+          }
+        />
+        <SummaryRow
+          icon={<Clock3 className="h-4 w-4 text-slate-400" />}
+          label="Metode"
+          value={selectedMethod ? getMethodLabel(selectedMethod, methodLabels) : 'Ikke valgt'}
+        />
+      </Card>
+
+      {showBudget && (
+        <Card className="space-y-4 rounded-[28px] p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-slate-900">Budgetgraense</p>
+              <p className="text-sm leading-6 text-slate-500">
+                Vi kontakter dig, hvis arbejdet overstiger beloebet.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBudgetQuote((value) => !value)}
+              className={[
+                'rounded-full px-3 py-1 text-sm font-semibold',
+                budgetQuote ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600',
+              ].join(' ')}
+            >
+              {budgetQuote ? 'Kun tilbud' : 'Fast budget'}
+            </button>
+          </div>
+
+          {!budgetQuote && (
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={300}
+                max={3000}
+                step={100}
+                value={budgetLimit}
+                onChange={(event) => setBudgetLimit(Number(event.target.value))}
+                className="flex-1 accent-slate-900"
+              />
+              <span className="w-20 text-right text-sm font-semibold text-slate-800">
+                {budgetLimit} kr.
+              </span>
+            </div>
+          )}
+        </Card>
+      )}
+
+      <Card className="space-y-3 rounded-[28px] p-5">
+        <label className="text-sm font-semibold text-slate-700" htmlFor="booking-notes">
+          Bemaerkninger
+        </label>
+        <textarea
+          id="booking-notes"
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          rows={4}
+          placeholder="Fx gear springer, bremser knirker eller andre detaljer"
+          className="w-full resize-none rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        />
+        {selectedMethod === 'pickup' && (
+          <p className="text-sm text-amber-700">
+            Pickup-bookinger bliver foerst bekraeftet, naar betalingen er registreret.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

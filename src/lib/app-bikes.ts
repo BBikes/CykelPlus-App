@@ -23,7 +23,32 @@ export async function listUserBikes(userId: string): Promise<Bike[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
-  return (data ?? []).map((bike) => enrichBikeImage(bike as Record<string, unknown>));
+  const bikes = (data ?? []).map((bike) => enrichBikeImage(bike as Record<string, unknown>));
+  if (bikes.length === 0) {
+    return [];
+  }
+
+  const { data: trackerRows } = await supabase
+    .from('tracker_addons')
+    .select('bike_id, active, status')
+    .eq('user_id', userId)
+    .in(
+      'bike_id',
+      bikes.map((bike) => bike.id)
+    );
+
+  const trackerMap = new Map(
+    (trackerRows ?? []).map((tracker) => [tracker.bike_id as string, tracker])
+  );
+
+  return bikes.map((bike) => {
+    const tracker = trackerMap.get(bike.id);
+    return {
+      ...bike,
+      tracker_active: tracker?.active ?? false,
+      tracker_status: (tracker?.status as Bike['tracker_status']) ?? null,
+    };
+  });
 }
 
 export async function getUserBike(userId: string, bikeId: string): Promise<Bike | null> {
@@ -39,5 +64,17 @@ export async function getUserBike(userId: string, bikeId: string): Promise<Bike 
     return null;
   }
 
-  return enrichBikeImage(data as Record<string, unknown>);
+  const bike = enrichBikeImage(data as Record<string, unknown>);
+  const { data: trackerRow } = await supabase
+    .from('tracker_addons')
+    .select('active, status')
+    .eq('user_id', userId)
+    .eq('bike_id', bikeId)
+    .maybeSingle();
+
+  return {
+    ...bike,
+    tracker_active: trackerRow?.active ?? false,
+    tracker_status: (trackerRow?.status as Bike['tracker_status']) ?? null,
+  };
 }

@@ -1,15 +1,25 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
-import { BottomNav } from '@/components/layout/bottom-nav';
+import { AppShell } from '@/components/layout/app-shell';
+import { toAppShellSession } from '@/lib/app-session';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/login');
 
+  const initialSessionPayload = {
+    session,
+    viewer: toAppShellSession(session),
+    sync: {
+      lastSyncedAt: session.user.last_bikedesk_sync_at,
+      syncRecommended: false,
+      syncing: false,
+    },
+  };
+
   return (
-    <div className="relative flex min-h-svh flex-col">
-      <main className="flex-1 mx-auto w-full max-w-[428px]">{children}</main>
-      <BottomNav />
-    </div>
+    <AppShell initialSessionPayload={initialSessionPayload}>
+      {children}
+    </AppShell>
   );
 }

@@ -33,13 +33,13 @@ export function PageHeader({ title, backHref, action, className = '' }: PageHead
       {backHref !== undefined && (
         <button
           onClick={handleBack}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/80 bg-white/90 text-slate-600 shadow-sm hover:bg-white active:bg-slate-50 touch-manipulation"
           aria-label="Tilbage"
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
-      <h1 className="flex-1 text-xl font-semibold text-gray-900">{title}</h1>
+      <h1 className="flex-1 text-xl font-semibold tracking-[-0.03em] text-slate-950">{title}</h1>
       {action && <div>{action}</div>}
     </header>
   );

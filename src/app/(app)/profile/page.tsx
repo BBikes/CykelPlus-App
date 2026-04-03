@@ -1,19 +1,7 @@
-import { getSession } from '@/lib/session';
-import { ensureBikeDeskSync } from '@/lib/bikedesk-sync';
-import { ProfileForm } from '@/components/profile/profile-form';
+import { ProfileTab } from '@/components/profile/profile-tab';
 
-export default async function ProfilePage() {
-  const session = await getSession();
-  if (!session) {
-    return null;
-  }
+export const metadata = { title: 'Profil - CykelPlus' };
 
-  await ensureBikeDeskSync(session);
-  const refreshedSession = await getSession();
-
-  if (!refreshedSession) {
-    return null;
-  }
-
-  return <ProfileForm session={refreshedSession} />;
+export default function ProfilePage() {
+  return <ProfileTab />;
 }

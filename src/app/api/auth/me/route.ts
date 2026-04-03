@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import { createServiceClient } from '@/lib/supabase/server';
-import { ensureBikeDeskSync } from '@/lib/bikedesk-sync';
+import { getBikeDeskSyncMeta } from '@/lib/bikedesk-sync';
 import { createCustomer, updateCustomer } from '@/lib/bikedesk';
+import { toAppShellSession } from '@/lib/app-session';
 
 const updateProfileSchema = z.object({
   first_name: z.string().trim().min(1),
@@ -18,16 +19,15 @@ const updateProfileSchema = z.object({
 export async function GET() {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ session: null }, { status: 401 });
+    return NextResponse.json({ error: 'Ikke logget ind', session: null }, { status: 401 });
   }
 
-  await ensureBikeDeskSync(session);
-  const refreshedSession = await getSession();
-  if (!refreshedSession) {
-    return NextResponse.json({ session: null }, { status: 401 });
-  }
-
-  return NextResponse.json({ session: refreshedSession });
+  const sync = await getBikeDeskSyncMeta(session);
+  return NextResponse.json({
+    session,
+    viewer: toAppShellSession(session),
+    sync,
+  });
 }
 
 export async function PUT(req: Request) {
@@ -86,12 +86,17 @@ export async function PUT(req: Request) {
       { onConflict: 'id' }
     );
 
-    const refreshedSession = await getSession();
+    const refreshedSession = await getSession({ touch: 'force' });
     if (!refreshedSession) {
       return NextResponse.json({ error: 'Session kunne ikke opdateres' }, { status: 500 });
     }
 
-    return NextResponse.json({ session: refreshedSession });
+    const sync = await getBikeDeskSyncMeta(refreshedSession);
+    return NextResponse.json({
+      session: refreshedSession,
+      viewer: toAppShellSession(refreshedSession),
+      sync,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ukendt fejl';
     return NextResponse.json({ error: message }, { status: 400 });
