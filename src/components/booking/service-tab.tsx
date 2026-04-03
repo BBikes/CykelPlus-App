@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CalendarClock, RefreshCw } from 'lucide-react';
 import { ServiceTabSkeleton } from '@/components/layout/page-skeletons';
@@ -23,6 +24,15 @@ export function ServiceTab() {
     requireBikes: true,
     revalidateKeys: [BOOKING_CONTEXT_API_KEY, BIKES_API_KEY, HOME_API_KEY],
   });
+
+  useEffect(() => {
+    if (!error) return;
+
+    console.error('[booking-debug] service_tab.context_failed', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }, [error]);
 
   if (isLoading && !data) {
     return (

@@ -29,6 +29,13 @@ import {
 import { getBikedeskServiceTemplatePrice } from '@/lib/bikedesk-service-cache';
 import { sendSms, toDanishPhone } from '@/lib/twilio';
 import { SMS_TEMPLATES } from '@/lib/sms-templates';
+import {
+  bookingDebug,
+  bookingDebugError,
+  createBookingTraceId,
+  maskPhone,
+  withDebugId,
+} from '@/lib/booking-debug';
 import type {
   AppSession,
   Bike,
@@ -185,16 +192,37 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const traceId = createBookingTraceId('submit');
   const session = await getSession();
   if (!session) {
+    bookingDebug(traceId, 'booking_submit.unauthorized');
     return NextResponse.json({ error: 'Ikke logget ind' }, { status: 401 });
   }
 
+  bookingDebug(traceId, 'booking_submit.start', {
+    userId: session.user.id,
+    phone: maskPhone(session.user.phone),
+  });
+
   try {
     const payload = bookingSchema.parse(await req.json());
+    bookingDebug(traceId, 'booking_submit.payload_parsed', {
+      bikeId: payload.bikeId,
+      templateId: payload.templateId,
+      method: payload.method,
+      date: payload.date,
+      time: payload.time ?? null,
+      budgetLimit: payload.budgetLimit ?? null,
+      budgetQuote: payload.budgetQuote ?? false,
+      notesLength: payload.notes?.trim().length ?? 0,
+    });
+
     const supabase = await createServiceClient();
 
     await ensureBikeDeskSync(session, { requireBikes: true });
+    bookingDebug(traceId, 'booking_submit.sync_completed', {
+      userId: session.user.id,
+    });
 
     const [{ data: bikeRow }, bookingContext, extensionsSupported] = await Promise.all([
       supabase
@@ -203,16 +231,32 @@ export async function POST(req: NextRequest) {
         .eq('id', payload.bikeId)
         .eq('user_id', session.user.id)
         .maybeSingle(),
-      getCykelPlusBookingContext(),
+      getCykelPlusBookingContext({ traceId }),
       supportsBookingExtensions(),
     ]);
 
+    bookingDebug(traceId, 'booking_submit.dependencies_loaded', {
+      bikeFound: Boolean(bikeRow),
+      extensionsSupported,
+      formId: bookingContext.form.id,
+      formSlug: bookingContext.form.slug,
+      templateCount: bookingContext.serviceCatalog.templates.length,
+    });
+
     const bike = bikeRow as Bike | null;
     if (!bike) {
+      bookingDebug(traceId, 'booking_submit.bike_missing', {
+        bikeId: payload.bikeId,
+        userId: session.user.id,
+      });
       return NextResponse.json({ error: 'Cykel ikke fundet' }, { status: 404 });
     }
 
     if (!isMethodEnabled(payload.method, bookingContext)) {
+      bookingDebug(traceId, 'booking_submit.method_disabled', {
+        method: payload.method,
+        formId: bookingContext.form.id,
+      });
       return NextResponse.json({ error: 'Metoden er ikke aktiveret' }, { status: 400 });
     }
 
@@ -221,6 +265,10 @@ export async function POST(req: NextRequest) {
     );
 
     if (!selectedTemplate) {
+      bookingDebug(traceId, 'booking_submit.template_missing', {
+        templateId: payload.templateId,
+        formId: bookingContext.form.id,
+      });
       return NextResponse.json({ error: 'Service blev ikke fundet' }, { status: 400 });
     }
 
@@ -231,6 +279,11 @@ export async function POST(req: NextRequest) {
         bookingContext.form.config.template_vehicle_types
       )
     ) {
+      bookingDebug(traceId, 'booking_submit.template_not_allowed', {
+        templateId: selectedTemplate.id,
+        bikeId: bike.id,
+        bikeType: bike.type,
+      });
       return NextResponse.json({ error: 'Servicen matcher ikke den valgte cykel' }, { status: 400 });
     }
 
@@ -262,7 +315,21 @@ export async function POST(req: NextRequest) {
           ? calendar?.max_bookings_pickup ?? 0
           : calendar?.max_bookings_onsite ?? 0;
 
+    bookingDebug(traceId, 'booking_submit.capacity_checked', {
+      method: payload.method,
+      date: payload.date,
+      useFormSpecificCapacity,
+      bookingCount: bookingCount ?? 0,
+      capacityLimit,
+    });
+
     if (capacityLimit > 0 && (bookingCount ?? 0) >= capacityLimit) {
+      bookingDebug(traceId, 'booking_submit.capacity_full', {
+        method: payload.method,
+        date: payload.date,
+        bookingCount: bookingCount ?? 0,
+        capacityLimit,
+      });
       return NextResponse.json({ error: 'Ingen ledige tider på den valgte dato' }, { status: 409 });
     }
 
@@ -277,6 +344,13 @@ export async function POST(req: NextRequest) {
     if (!planner?.id) {
       throw new Error('BikeDesk assignee "Planlægningen" blev ikke fundet');
     }
+
+    bookingDebug(traceId, 'booking_submit.bikedesk_resolved', {
+      customerId: customer.id,
+      plannerId: planner.id,
+      storeId: store.id,
+      availableTagCount: availableTags.length,
+    });
 
     const weekdayIndex = parseDateFromISO(payload.date).getDay() as WeekdayIndex;
     const configuredMethodTagIds =
@@ -305,6 +379,13 @@ export async function POST(req: NextRequest) {
         ...getMethodGlobalServiceIds(bookingContext.globalSettings, payload.method),
       ]),
     ].filter((templateId) => !excludedGlobalServiceIds.has(templateId));
+
+    bookingDebug(traceId, 'booking_submit.ticket_inputs_ready', {
+      tagIds,
+      attachedTemplateIds,
+      selectedTemplateId: payload.templateId,
+      excludedGlobalServiceIds: [...excludedGlobalServiceIds],
+    });
 
     const descriptionLines = [
       `Kilde: CykelPlus App`,
@@ -337,9 +418,21 @@ export async function POST(req: NextRequest) {
       tagids: tagIds,
     });
 
+    bookingDebug(traceId, 'booking_submit.ticket_created', {
+      ticketId: ticket.id,
+      ticketStatus: ticket.status,
+      tagIds,
+      attachedTemplateCount: attachedTemplateIds.length,
+    });
+
     for (const templateId of attachedTemplateIds) {
       await attachTemplateToTicket(ticket.id, templateId);
     }
+
+    bookingDebug(traceId, 'booking_submit.templates_attached', {
+      ticketId: ticket.id,
+      attachedTemplateIds,
+    });
 
     const ticketNumber = getBikedeskTicketDisplayNumber(ticket);
     const now = new Date().toISOString();
@@ -414,6 +507,14 @@ export async function POST(req: NextRequest) {
       throw new Error(bookingError?.message ?? 'Kunne ikke oprette booking');
     }
 
+    bookingDebug(traceId, 'booking_submit.booking_inserted', {
+      bookingId: insertedBooking.id,
+      ticketId: ticket.id,
+      paymentLinkPresent: Boolean(paymentLinkUrl),
+      paymentExpiresAt: effectivePaymentExpiresAt,
+      paymentAmount,
+    });
+
     if (payload.method === 'pickup') {
       await supabase.from('booking_payment_status').upsert(
         {
@@ -460,6 +561,11 @@ export async function POST(req: NextRequest) {
       ].filter(Boolean)
     );
 
+    bookingDebug(traceId, 'booking_submit.events_inserted', {
+      bookingId: insertedBooking.id,
+      eventCount: payload.method === 'pickup' ? 2 : 2,
+    });
+
     try {
       await appendTicketNote(
         {
@@ -489,9 +595,21 @@ export async function POST(req: NextRequest) {
     }
 
     const booking = await getUserBooking(session.user, insertedBooking.id);
+    bookingDebug(traceId, 'booking_submit.success', {
+      bookingId: insertedBooking.id,
+      hasBookingPayload: Boolean(booking),
+      customerStatus: booking?.customer_status ?? null,
+    });
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {
+    bookingDebugError(traceId, 'booking_submit.failed', error, {
+      userId: session.user.id,
+      phone: maskPhone(session.user.phone),
+    });
     const message = error instanceof Error ? error.message : 'Ukendt fejl';
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json(
+      { error: withDebugId(message, traceId), debugId: traceId },
+      { status: 400 }
+    );
   }
 }

@@ -11,6 +11,7 @@ import {
   normalizeBookingSettings,
   normalizeVehicleTypes,
 } from '@/lib/booking/settings';
+import { bookingDebug } from '@/lib/booking-debug';
 import type {
   BookingForm,
   BookingMethodServiceTotals,
@@ -28,6 +29,10 @@ export interface CykelPlusBookingContext {
   serviceCatalog: BikedeskServiceCatalog;
   vehicleTypes: VehicleTypeConfig[];
   methodServiceTotals: BookingMethodServiceTotals;
+}
+
+interface BookingContextOptions {
+  traceId?: string;
 }
 
 function normalizeFormRow(row: { id: string; title: string; slug: string | null; config: unknown }): BookingForm {
@@ -78,7 +83,9 @@ export async function getConfiguredVehicleTypes(): Promise<VehicleTypeConfig[]> 
   return normalizeVehicleTypes(data?.value ?? []);
 }
 
-export async function getCykelPlusBookingContext(): Promise<CykelPlusBookingContext> {
+export async function getCykelPlusBookingContext(
+  options: BookingContextOptions = {}
+): Promise<CykelPlusBookingContext> {
   const supabase = await createServiceClient();
   const [{ data: formRow }, { data: bookingSettingsRow }, { data: vehicleTypesRow }] =
     await Promise.all([
@@ -99,6 +106,16 @@ export async function getCykelPlusBookingContext(): Promise<CykelPlusBookingCont
     throw new Error('Ingen bookingformular blev fundet');
   }
 
+  if (options.traceId) {
+    bookingDebug(options.traceId, 'booking_context.form_resolved', {
+      formId: formRow.id,
+      formSlug: formRow.slug,
+      fallbackUsed: formRow.slug !== CYKELPLUS_BOOKING_FORM_SLUG,
+      hasBookingSettings: Boolean(bookingSettingsRow?.value),
+      hasVehicleTypes: Boolean(vehicleTypesRow?.value),
+    });
+  }
+
   const globalSettings = normalizeBookingSettings(bookingSettingsRow?.value ?? DEFAULT_BOOKING_SETTINGS);
   const form = normalizeFormRow(formRow);
   const effectiveForm: BookingForm = {
@@ -113,6 +130,19 @@ export async function getCykelPlusBookingContext(): Promise<CykelPlusBookingCont
     globalSettings,
     serviceCatalog.templates
   );
+
+  if (options.traceId) {
+    bookingDebug(options.traceId, 'booking_context.catalog_ready', {
+      formId: effectiveForm.id,
+      formSlug: effectiveForm.slug,
+      vehicleTypeCount: vehicleTypes.length,
+      groupCount: serviceCatalog.groups.length,
+      templateCount: serviceCatalog.templates.length,
+      source: serviceCatalog.source,
+      isStale: serviceCatalog.is_stale,
+      syncError: serviceCatalog.sync_error,
+    });
+  }
 
   return {
     form: effectiveForm,

@@ -220,7 +220,14 @@ export function BookingWizard({
           setBookingCounts(data.counts ?? {});
         }
       } catch (availabilityError) {
-        console.error('Availability request failed:', availabilityError);
+        console.error('[booking-debug] booking_wizard.availability_failed', {
+          error:
+            availabilityError instanceof Error ? availabilityError.message : String(availabilityError),
+          formId: form.id,
+          method: selectedMethod,
+          startDate,
+          endDate,
+        });
         if (!cancelled) {
           setBookingCounts({});
         }
@@ -371,12 +378,28 @@ export function BookingWizard({
       const data = await res.json();
 
       if (!res.ok) {
+        console.error('[booking-debug] booking_wizard.submit_failed_response', {
+          status: res.status,
+          error: data?.error ?? 'Kunne ikke oprette booking',
+          bikeId: selectedBikeId,
+          templateId: selectedTemplateId,
+          method: selectedMethod,
+          date: selectedDate,
+        });
         throw new Error(data.error ?? 'Kunne ikke oprette booking');
       }
 
       await Promise.all([mutate(HOME_API_KEY), mutate(BOOKINGS_API_KEY)]);
       router.push(`/bookings/${data.booking.id}`);
     } catch (submitError) {
+      console.error('[booking-debug] booking_wizard.submit_failed', {
+        error: submitError instanceof Error ? submitError.message : String(submitError),
+        bikeId: selectedBikeId,
+        templateId: selectedTemplateId,
+        method: selectedMethod,
+        date: selectedDate,
+        time: timeSlots.length > 0 ? selectedTime : null,
+      });
       setError(submitError instanceof Error ? submitError.message : 'Ukendt fejl');
     } finally {
       setSubmitting(false);
